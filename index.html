@@ -1,0 +1,1953 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<meta name="theme-color" content="#1a73e8"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<title>MarineStock v5</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --bg:#e4e9ee;--bg2:#edf1f5;--bg3:#d8dfe6;
+  --text:#1a2332;--text2:#4a6080;--text3:#8aa8c8;
+  --accent:#1a73e8;--accent2:#1557b0;
+  --teal:#00897b;--danger:#d32f2f;--safe:#2e7d32;--warn:#f57c00;
+  --border:#c2ccd6;--border2:#b0bcc8;
+  --shadow:0 1px 4px rgba(0,0,0,0.06);--shadow2:0 4px 16px rgba(0,0,0,0.10);
+  --radius:10px;
+}
+[data-theme="dark"]{
+  --bg:#0a1628;--bg2:#0f2040;--bg3:#162d52;
+  --text:#d8e4f0;--text2:#8aa8c8;--text3:#5a7a9a;
+  --accent:#4a9eff;--accent2:#2a7ee8;
+  --teal:#00c2b8;--danger:#e84040;--safe:#30c070;--warn:#e8a020;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+  --shadow:0 1px 4px rgba(0,0,0,0.3);--shadow2:0 4px 16px rgba(0,0,0,0.5);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;overflow:hidden;}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;}
+#hdr{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 14px;flex-shrink:0;box-shadow:var(--shadow);}
+.hdr-top{display:flex;align-items:center;gap:10px;}
+.burger{background:none;border:none;color:var(--text);font-size:22px;cursor:pointer;padding:2px 6px;border-radius:6px;}
+.burger:hover{background:var(--bg3);}
+.logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:2px;color:var(--accent);text-transform:uppercase;flex:1;}
+.logo span{color:var(--teal);}
+.hdr-acts{display:flex;gap:6px;align-items:center;}
+.hdr-row2{display:flex;align-items:center;justify-content:space-between;margin-top:4px;}
+.vessel-lbl{font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;font-weight:600;}
+.sync-badge{display:inline-flex;align-items:center;gap:4px;border-radius:20px;padding:2px 9px;font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;border:1px solid transparent;transition:all .3s;}
+.sync-badge.connected{background:rgba(46,125,50,0.1);color:var(--safe);border-color:rgba(46,125,50,0.3);}
+.sync-badge.connecting{background:rgba(245,124,0,0.1);color:var(--warn);border-color:rgba(245,124,0,0.3);}
+.sync-badge.offline{background:rgba(90,90,90,0.1);color:var(--text2);border-color:var(--border2);}
+.sync-badge.not-configured{background:rgba(211,47,47,0.1);color:var(--danger);border-color:rgba(211,47,47,0.2);cursor:pointer;}
+.sync-badge.error{background:rgba(211,47,47,0.15);color:var(--danger);border-color:rgba(211,47,47,0.3);}
+.sync-dot{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;}
+.sync-dot.pulse{animation:pu 1.5s infinite;}
+@keyframes pu{0%,100%{opacity:1;}50%{opacity:0.3;}}
+#offBanner{background:var(--warn);color:#fff;text-align:center;padding:6px;font-size:12px;font-weight:600;display:none;flex-shrink:0;}
+#offBanner.show{display:block;}
+#sbOv{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;display:none;opacity:0;transition:opacity .25s;}
+#sbOv.open{display:block;opacity:1;}
+#sb{position:fixed;left:0;top:0;bottom:0;width:270px;background:var(--bg2);border-right:1px solid var(--border);z-index:301;transform:translateX(-100%);transition:transform .25s;display:flex;flex-direction:column;box-shadow:var(--shadow2);}
+#sb.open{transform:translateX(0);}
+.sb-hdr{padding:16px 14px 12px;border-bottom:1px solid var(--border);}
+.sb-logo{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--accent);letter-spacing:2px;}
+.sb-logo span{color:var(--teal);}
+.sb-vessel{font-size:10px;color:var(--text2);letter-spacing:1px;margin-top:2px;font-weight:600;text-transform:uppercase;}
+.sb-body{padding:6px 0;flex:1;overflow-y:auto;}
+.sb-lbl{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text3);padding:8px 14px 4px;display:block;}
+.sb-item{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background .15s;position:relative;}
+.sb-item:hover{background:var(--bg3);}
+.sb-item.active{background:var(--bg3);}
+.sb-item.active::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sc,var(--accent));border-radius:0 2px 2px 0;}
+.sb-icon{font-size:16px;width:24px;text-align:center;flex-shrink:0;}
+.sb-txt{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:0.5px;flex:1;color:var(--text);}
+.sb-cnt{font-size:11px;color:var(--text2);background:var(--bg3);border-radius:10px;padding:1px 7px;border:1px solid var(--border);}
+.sb-low{font-size:10px;color:var(--danger);background:rgba(211,47,47,0.1);border-radius:10px;padding:1px 6px;}
+.sb-add{margin:6px 10px;padding:9px;border-radius:8px;border:1px dashed var(--border2);text-align:center;cursor:pointer;font-size:12px;color:var(--text2);transition:all .15s;}
+.sb-add:hover{border-color:var(--accent);color:var(--accent);}
+.sb-foot{padding:10px 14px;border-top:1px solid var(--border);font-size:10px;color:var(--text3);text-align:center;flex-shrink:0;}
+#pages{flex:1;overflow:hidden;position:relative;}
+.page{position:absolute;inset:0;overflow-y:auto;display:none;padding:12px 12px 80px;}
+.page.active{display:block;}
+.search-bar{display:flex;gap:8px;margin-bottom:12px;}
+.search-bar input{flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--text);font-size:14px;font-family:'Barlow',sans-serif;outline:none;box-shadow:var(--shadow);}
+.search-bar input:focus{border-color:var(--accent);}
+.search-bar input::placeholder{color:var(--text3);}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.s-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center;box-shadow:var(--shadow);}
+.s-val{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:800;color:var(--text);}
+.s-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:1px;}
+.so-banner{background:rgba(0,137,123,0.08);border:1px solid rgba(0,137,123,0.25);border-radius:var(--radius);padding:10px 13px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+.items-list{display:flex;flex-direction:column;gap:8px;}
+.item-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:12px 13px;position:relative;overflow:hidden;box-shadow:var(--shadow);}
+.item-card.low-stock{border-color:rgba(211,47,47,0.4);background:rgba(211,47,47,0.03);}
+.item-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--sc,var(--accent));}
+.item-top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+.item-nw{flex:1;}
+.item-name{font-family:'Barlow Condensed',sans-serif;font-size:17px;font-weight:700;line-height:1.2;color:var(--text);}
+.badge{display:inline-flex;align-items:center;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:600;margin-left:4px;vertical-align:middle;cursor:pointer;}
+.bdg-t{background:rgba(0,137,123,0.1);color:var(--teal);}
+.bdg-a{background:rgba(245,124,0,0.1);color:var(--warn);}
+.bdg-p{background:rgba(26,115,232,0.1);color:var(--accent);}
+.item-acts{display:flex;gap:5px;flex-shrink:0;}
+.btn-icon{background:var(--bg3);border:1px solid var(--border);border-radius:6px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;transition:all .15s;}
+.btn-icon:hover{background:var(--border);}
+.item-meta{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+.tag{font-size:11px;padding:2px 8px;border-radius:20px;background:var(--bg3);color:var(--text2);border:1px solid var(--border);}
+.tag.loc{color:var(--warn);}
+.tag.pn{color:var(--accent);}
+.item-qty-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
+.qty-n{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;line-height:1;color:var(--text);}
+.qty-u{font-size:12px;color:var(--text2);}
+.qty-m{font-size:11px;color:var(--text2);}
+.qty-m.warn{color:var(--danger);}
+.qty-bar-wrap{height:4px;background:var(--bg3);border-radius:2px;margin-top:5px;overflow:hidden;}
+.qty-bar{height:100%;border-radius:2px;transition:width .3s;}
+.qty-controls{display:flex;gap:5px;}
+.qty-btn{border-radius:6px;padding:5px 9px;cursor:pointer;font-size:11px;font-weight:700;transition:all .15s;user-select:none;white-space:nowrap;font-family:'Barlow Condensed',sans-serif;border:1px solid var(--border);background:var(--bg3);color:var(--text);}
+.qty-btn.add-btn{color:var(--safe);border-color:rgba(46,125,50,0.3);background:rgba(46,125,50,0.05);}
+.qty-btn.add-btn:hover{background:rgba(46,125,50,0.12);}
+.qty-btn.ded-btn{color:var(--danger);border-color:rgba(211,47,47,0.3);background:rgba(211,47,47,0.05);}
+.qty-btn.ded-btn:hover{background:rgba(211,47,47,0.12);}
+#fab{position:fixed;bottom:22px;right:18px;width:52px;height:52px;border-radius:50%;background:var(--accent);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:26px;color:#fff;box-shadow:0 4px 20px rgba(26,115,232,0.4);transition:transform .2s;z-index:100;}
+#fab:hover{transform:scale(1.08);}
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:400;display:none;align-items:flex-end;justify-content:center;}
+.mbg.open{display:flex;}
+.mbg.center{align-items:center;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:18px 18px 0 0;width:100%;max-width:600px;padding:18px 18px 30px;max-height:92vh;overflow-y:auto;box-shadow:var(--shadow2);}
+.modal.ctr{border-radius:16px;max-width:400px;width:92%;}
+.mhandle{width:40px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 14px;}
+.mtitle{font-family:'Barlow Condensed',sans-serif;font-size:21px;font-weight:800;letter-spacing:1px;margin-bottom:14px;color:var(--text);}
+.fg{margin-bottom:13px;}
+.flbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:5px;display:block;font-weight:600;}
+.fi{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:14px;font-family:'Barlow',sans-serif;outline:none;}
+.fi:focus{border-color:var(--accent);}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.macts{display:flex;gap:10px;margin-top:16px;}
+.btn{flex:1;padding:11px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;border:none;transition:all .2s;}
+.btn-p{background:var(--accent);color:#fff;}
+.btn-p:hover{background:var(--accent2);}
+.btn-s{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+.btn-s:hover{background:var(--border);}
+.btn-d{background:rgba(211,47,47,0.1);color:var(--danger);border:1px solid rgba(211,47,47,0.3);}
+.btn-t{background:rgba(0,137,123,0.1);color:var(--teal);border:1px solid rgba(0,137,123,0.3);}
+.btn-w{background:rgba(245,124,0,0.1);color:var(--warn);border:1px solid rgba(245,124,0,0.3);}
+.cbrow{display:flex;align-items:center;gap:10px;padding:10px 13px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;margin-bottom:13px;}
+.cbrow input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
+.tx-type-row{display:flex;gap:8px;margin-bottom:12px;}
+.tx-tb{flex:1;padding:10px;border-radius:8px;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;border:1px solid var(--border);background:var(--bg3);color:var(--text2);transition:all .2s;}
+.tx-tb.active.add{background:rgba(46,125,50,0.1);color:var(--safe);border-color:rgba(46,125,50,0.4);}
+.tx-tb.active.deduct{background:rgba(211,47,47,0.1);color:var(--danger);border-color:rgba(211,47,47,0.4);}
+input[type=date].fi{color-scheme:light;}
+[data-theme="dark"] input[type=date].fi{color-scheme:dark;}
+.pin-row{display:flex;justify-content:center;gap:12px;margin:16px 0;}
+.pin-dot{width:16px;height:16px;border-radius:50%;background:var(--bg3);border:2px solid var(--border2);transition:all .15s;}
+.pin-dot.filled{background:var(--accent);border-color:var(--accent);}
+.pin-dot.error{background:var(--danger);border-color:var(--danger);}
+.pin-kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 auto;max-width:240px;}
+.pk{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:700;transition:all .15s;user-select:none;color:var(--text);}
+.pk:hover{background:var(--border);}
+.pk:active{transform:scale(0.94);}
+.pk.empty{background:transparent;border-color:transparent;cursor:default;}
+.txf{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.fbt{padding:4px 10px;border-radius:20px;font-size:11px;font-family:'Barlow Condensed',sans-serif;font-weight:700;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;transition:all .15s;}
+.fbt.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tx-entry{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px 13px;margin-bottom:7px;display:flex;gap:10px;align-items:flex-start;box-shadow:var(--shadow);}
+.tx-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;}
+.tx-icon.add{background:rgba(46,125,50,0.1);}
+.tx-icon.deduct{background:rgba(211,47,47,0.1);}
+.tx-body{flex:1;min-width:0;}
+.tx-name{font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
+.tx-rem{font-size:11px;color:var(--text2);margin-top:1px;}
+.tx-crew{font-size:10px;color:var(--accent);margin-top:1px;}
+.tx-meta{font-size:10px;color:var(--text3);margin-top:3px;}
+.tx-right{text-align:right;flex-shrink:0;}
+.tx-qty{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;}
+.tx-qty.add{color:var(--safe);}
+.tx-qty.deduct{color:var(--danger);}
+.hist-month{margin-bottom:14px;}
+.hist-hdr{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:7px;padding-bottom:5px;border-bottom:2px solid var(--accent);}
+.htbl{width:100%;border-collapse:collapse;font-size:11px;}
+.htbl th{text-align:left;color:var(--text2);padding:3px 5px 6px;font-size:10px;text-transform:uppercase;letter-spacing:1px;border-bottom:1px solid var(--border);}
+.htbl td{padding:4px 5px;border-bottom:1px solid var(--border);}
+.htbl tr:last-child td{border-bottom:none;}
+.ch-pos{color:var(--safe);font-weight:700;}
+.ch-neg{color:var(--danger);font-weight:700;}
+.ss{margin-bottom:18px;}
+.st{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);}
+.sr{display:flex;align-items:center;justify-content:space-between;padding:11px 13px;border-bottom:1px solid var(--border);}
+.sr:last-child{border-bottom:none;}
+.sr-lbl{font-size:13px;color:var(--text);font-weight:500;}
+.sr-sub{font-size:11px;color:var(--text2);margin-top:1px;}
+.sr input{background:transparent;border:none;color:var(--text);font-size:13px;text-align:right;outline:none;font-family:'Barlow',sans-serif;width:150px;}
+.home-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:12px;}
+.hs{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:10px;box-shadow:var(--shadow);}
+.hsv{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--text);}
+.hsl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:1px;}
+.htitle{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--text2);text-transform:uppercase;margin-bottom:7px;}
+.home-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:12px;box-shadow:var(--shadow);}
+.home-row{padding:9px 12px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);}
+.home-row:last-child{border-bottom:none;}
+.echks{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;}
+.echk-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;cursor:pointer;}
+.echk-row input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent);cursor:pointer;flex-shrink:0;}
+.bulk-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;margin-bottom:7px;}
+.bulk-name{flex:1;font-size:13px;font-weight:600;color:var(--text);}
+.bulk-unit{font-size:11px;color:var(--text2);white-space:nowrap;}
+.bulk-inp{width:80px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:6px 8px;color:var(--text);font-size:14px;font-family:'Barlow',sans-serif;outline:none;text-align:center;}
+.bulk-inp:focus{border-color:var(--accent);}
+.disc-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;max-width:400px;width:92%;padding:22px 20px;text-align:center;box-shadow:var(--shadow2);}
+.disc-txt{font-size:12px;color:var(--text2);line-height:1.6;text-align:left;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:14px;}
+.setup-step{background:var(--bg3);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:9px;}
+.ssn{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--accent);text-transform:uppercase;margin-bottom:3px;}
+.sst{font-size:13px;font-weight:600;margin-bottom:3px;color:var(--text);}
+.ssd{font-size:11px;color:var(--text2);line-height:1.5;}
+.ssd a{color:var(--accent);}
+.cfg-ta{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--accent);font-size:11px;font-family:monospace;resize:vertical;min-height:130px;outline:none;line-height:1.5;}
+.msds-area{border:2px dashed var(--border2);border-radius:8px;padding:12px;text-align:center;cursor:pointer;font-size:12px;color:var(--text2);transition:all .15s;margin-top:5px;}
+.msds-area:hover{border-color:var(--accent);color:var(--accent);}
+.prog-wrap{height:4px;background:var(--bg3);border-radius:2px;margin-top:7px;overflow:hidden;display:none;}
+.prog-bar{height:100%;background:var(--teal);border-radius:2px;transition:width .2s;}
+.theme-toggle{background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 8px;cursor:pointer;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:4px;}
+.theme-toggle:hover{background:var(--border);}
+.empty-state{text-align:center;padding:44px 20px;color:var(--text2);}
+.empty-icon{font-size:44px;margin-bottom:10px;opacity:0.5;}
+#toast{position:fixed;bottom:86px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12px;font-weight:600;opacity:0;transition:all .3s;z-index:500;white-space:nowrap;pointer-events:none;box-shadow:var(--shadow2);}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* CHAT */
+.chat-msg{max-width:80%;padding:10px 13px;border-radius:12px;font-size:13px;line-height:1.5;margin-bottom:2px;}
+.chat-msg.crew{align-self:flex-end;background:var(--accent);color:#fff;border-radius:12px 12px 2px 12px;}
+.chat-msg.admin{align-self:flex-start;background:var(--bg3);color:var(--text);border:1px solid var(--border);border-radius:12px 12px 12px 2px;}
+.chat-msg.system{align-self:center;background:var(--bg3);color:var(--text2);font-size:11px;border-radius:20px;padding:4px 12px;}
+.chat-msg-meta{font-size:10px;margin-top:3px;opacity:0.7;}
+.chat-notif{position:absolute;top:-4px;right:-4px;width:16px;height:16px;background:var(--danger);border-radius:50%;font-size:9px;font-weight:700;color:#fff;display:flex;align-items:center;justify-content:center;border:2px solid var(--bg2);}
+/* ADMIN */
+.adm-section{margin-bottom:16px;}
+.adm-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
+.adm-card{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+.adm-row{display:flex;align-items:center;justify-content:space-between;padding:10px 13px;border-bottom:1px solid var(--border);}
+.adm-row:last-child{border-bottom:none;}
+.code-badge{font-family:monospace;font-size:13px;font-weight:700;background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--accent);letter-spacing:1px;}
+.status-pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;}
+.status-pill.active{background:rgba(46,125,50,0.1);color:var(--safe);}
+.status-pill.revoked{background:rgba(211,47,47,0.1);color:var(--danger);}
+.status-pill.unused{background:rgba(245,124,0,0.1);color:var(--warn);}
+.status-pill.cancelled{background:rgba(90,90,90,0.1);color:var(--text2);}
+.status-pill.used{background:rgba(26,115,232,0.1);color:var(--accent);}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+select.fi option{background:var(--bg2);color:var(--text);}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ACTIVATION SCREEN
+     ============================================================ -->
+<div id="actScreen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:2000;align-items:center;justify-content:center;flex-direction:column;padding:20px;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:16px;max-width:380px;width:100%;padding:28px 24px;text-align:center;box-shadow:var(--shadow2);">
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;color:var(--accent);letter-spacing:3px;margin-bottom:4px;">Marine<span style="color:var(--teal);">Stock</span></div>
+    <div style="font-size:11px;color:var(--text2);letter-spacing:1px;margin-bottom:6px;">v5 &#9729; CLOUD</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:20px;" id="actVesselLbl">Loading...</div>
+
+    <!-- NOT ACTIVATED STATE -->
+    <div id="actNotActivated">
+      <div style="background:rgba(211,47,47,0.08);border:1px solid rgba(211,47,47,0.2);border-radius:10px;padding:14px;margin-bottom:16px;">
+        <div style="font-size:28px;margin-bottom:6px;">&#128274;</div>
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--danger);margin-bottom:4px;">DEVICE NOT ACTIVATED</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.5;">This device is not authorized to access MarineStock. Please contact your admin to get an access code.</div>
+      </div>
+      <button class="btn btn-p" style="width:100%;margin-bottom:8px;" onclick="showActEnterCode()">&#128273; I Have an Access Code</button>
+      <button class="btn btn-s" style="width:100%;font-size:12px;" onclick="showActChat()">&#128172; Message Admin for Code</button>
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--border);">
+        <div style="font-size:11px;color:var(--text3);text-align:center;line-height:1.5;">
+          To get an access code, contact the<br/>
+          <strong style="color:var(--accent);">MarineStock Administrator</strong><br/>
+          or use the Message Admin button above.
+        </div>
+      </div>
+    </div>
+
+    <!-- ENTER CODE STATE -->
+    <div id="actEnterCode" style="display:none;">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:16px;">Enter the access code provided by your admin.</div>
+      <div class="fg"><label class="flbl">Device Name / Rank</label><input type="text" class="fi" id="actDeviceName" placeholder="e.g. Second Engineer"/></div>
+      <div class="fg"><label class="flbl">Access Code</label><input type="text" class="fi" id="actCode" placeholder="e.g. ARMA-8606-X7K2" style="text-transform:uppercase;letter-spacing:2px;text-align:center;" oninput="this.value=this.value.toUpperCase()"/></div>
+      <button class="btn btn-p" style="width:100%;margin-bottom:8px;" onclick="activateDevice()">Activate This Device</button>
+      <button class="btn btn-s" style="width:100%;font-size:12px;" onclick="showActNotActivated()">&#8592; Back</button>
+    </div>
+
+    <!-- MESSAGE ADMIN STATE (before activation) -->
+    <div id="actChat" style="display:none;">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Send a message to the admin to request an access code.</div>
+      <div class="fg"><label class="flbl">Your Name / Rank</label><input type="text" class="fi" id="actChatName" placeholder="e.g. Second Engineer"/></div>
+      <div class="fg"><label class="flbl">Message</label><textarea class="fi" id="actChatMsg" placeholder="e.g. Please send me an access code for MarineStock." style="resize:none;height:80px;"></textarea></div>
+      <button class="btn btn-p" style="width:100%;margin-bottom:8px;" onclick="sendPreActMsg()">&#128172; Send Message</button>
+      <button class="btn btn-s" style="width:100%;font-size:12px;" onclick="showActNotActivated()">&#8592; Back</button>
+    </div>
+
+    <!-- RECOVERY STATE -->
+    <div id="actRecovery" style="display:none;">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;">Enter your 4-digit Recovery PIN to restore access.</div>
+      <div class="pin-row"><div class="pin-dot" id="rpd0"></div><div class="pin-dot" id="rpd1"></div><div class="pin-dot" id="rpd2"></div><div class="pin-dot" id="rpd3"></div></div>
+      <div class="pin-kp" style="margin-bottom:14px;">
+        <div class="pk" onclick="rPinK('1')">1</div><div class="pk" onclick="rPinK('2')">2</div><div class="pk" onclick="rPinK('3')">3</div>
+        <div class="pk" onclick="rPinK('4')">4</div><div class="pk" onclick="rPinK('5')">5</div><div class="pk" onclick="rPinK('6')">6</div>
+        <div class="pk" onclick="rPinK('7')">7</div><div class="pk" onclick="rPinK('8')">8</div><div class="pk" onclick="rPinK('9')">9</div>
+        <div class="pk empty"></div><div class="pk" onclick="rPinK('0')">0</div><div class="pk" style="font-size:16px;" onclick="rPinBk()">&#9003;</div>
+      </div>
+      <button class="btn btn-s" style="width:100%;font-size:12px;" onclick="showActNotActivated()">&#8592; Back</button>
+    </div>
+
+    <!-- ACTIVATING SPINNER -->
+    <div id="actActivating" style="display:none;">
+      <div style="font-size:32px;margin-bottom:10px;">&#9729;&#65039;</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;color:var(--accent);">Activating Device...</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:6px;">Please wait</div>
+    </div>
+  </div>
+</div>
+
+<!-- RECOVERY PIN DISPLAY MODAL (shown once after activation) -->
+<div class="mbg center" id="recoveryPinModal">
+  <div class="modal ctr">
+    <div style="font-size:32px;text-align:center;margin-bottom:8px;">&#128273;</div>
+    <div class="mtitle" style="text-align:center;">Save Your Recovery PIN</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;text-align:center;">This PIN restores your access if browser data is cleared. <strong>Write it down now.</strong> It will not be shown again.</div>
+    <div style="background:var(--bg3);border:2px solid var(--accent);border-radius:10px;padding:16px;text-align:center;margin-bottom:14px;">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Your Recovery PIN</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:40px;font-weight:800;color:var(--accent);letter-spacing:8px;" id="recoveryPinDisplay">----</div>
+    </div>
+    <div style="font-size:11px;color:var(--danger);margin-bottom:14px;text-align:center;">&#9888;&#65039; Keep this PIN safe. Do not share it with anyone.</div>
+    <button class="btn btn-p" style="width:100%;" onclick="confirmRecoveryPinSaved()">I Have Written It Down &#10003;</button>
+  </div>
+</div>
+
+<div id="app">
+  <div id="hdr">
+    <div class="hdr-top">
+      <button class="burger" onclick="toggleSB()">&#9776;</button>
+      <div class="logo">Marine<span>Stock</span> <span style="font-size:10px;color:var(--teal);font-weight:500;">&#9729; v5</span></div>
+      <div class="hdr-acts">
+        <div class="theme-toggle" onclick="toggleTheme()"><span id="themeIcon">&#9788;</span></div>
+        <button class="btn-icon" onclick="openExportModal()">&#128196;</button>
+        <button class="btn-icon" onclick="showSection('settings')">&#9881;&#65039;</button>
+      </div>
+    </div>
+    <div class="hdr-row2">
+      <div class="vessel-lbl" id="hdrVessel">&#8212; Vessel &#8212;</div>
+      <div class="sync-badge not-configured" id="syncBadge" onclick="openCloudSetup()">
+        <div class="sync-dot"></div><span id="syncTxt">Not Connected</span>
+      </div>
+    </div>
+  </div>
+  <div id="offBanner">&#128268; You are offline &#8212; changes will sync when connection is restored</div>
+  <div id="sbOv" onclick="closeSB()"></div>
+  <div id="sb">
+    <div class="sb-hdr"><div class="sb-logo">Marine<span>Stock</span></div><div class="sb-vessel" id="sbVessel">&#8212; Vessel &#8212;</div></div>
+    <div class="sb-body" id="sbBody"></div>
+    <div class="sb-foot">MarineStock v5 &#183; Personal Use Only<br/>Not affiliated with OSM / Ocean Infinity</div>
+  </div>
+  <div id="pages">
+    <div class="page active" id="page-home"></div>
+    <div class="page" id="page-txlog"><div class="txf" id="txFilter"></div><div id="txList" style="padding-bottom:20px;"></div></div>
+    <div class="page" id="page-history"><div id="histContent"></div></div>
+    <div class="page" id="page-chat">
+      <div style="display:flex;flex-direction:column;height:calc(100vh - 130px);">
+        <div style="padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px;">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--text);">&#128172; Support Chat</div>
+          <div style="font-size:11px;color:var(--text2);" id="chatStatusLbl">Send a message to the Master Admin</div>
+        </div>
+        <div id="chatMsgs" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;padding-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;padding-top:10px;border-top:1px solid var(--border);">
+          <input type="text" id="chatInp" placeholder="Type your message..." onkeydown="if(event.key==='Enter')sendChat()" style="flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:9px 14px;color:var(--text);font-size:14px;font-family:'Barlow',sans-serif;outline:none;"/>
+          <button onclick="sendChat()" style="background:var(--accent);border:none;border-radius:50%;width:38px;height:38px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#fff;font-size:16px;flex-shrink:0;">&#10148;</button>
+        </div>
+      </div>
+    </div>
+    <div class="page" id="page-settings">
+      <div class="ss"><div class="st">&#9729;&#65039; Cloud Sync</div>
+        <div class="sc"><div class="sr"><div><div class="sr-lbl">Firebase Status</div><div class="sr-sub" id="settSyncSub">Not configured</div></div><button class="btn btn-t" style="flex:none;padding:7px 12px;font-size:11px;" onclick="openCloudSetup()">&#9729;&#65039; Setup</button></div></div>
+      </div>
+      <div class="ss"><div class="st">Appearance</div>
+        <div class="sc"><div class="sr"><div><div class="sr-lbl">Theme</div><div class="sr-sub">Light or Dark mode</div></div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-s" style="flex:none;padding:7px 12px;font-size:11px;" onclick="setTheme('light')">&#9788; Light</button>
+            <button class="btn btn-s" style="flex:none;padding:7px 12px;font-size:11px;" onclick="setTheme('dark')">&#9790; Dark</button>
+          </div></div></div>
+      </div>
+      <div class="ss"><div class="st">Vessel Information</div>
+        <div class="sc">
+          <div class="sr"><div><div class="sr-lbl">Vessel Name</div><div class="sr-sub">Appears on PDF reports</div></div><input type="text" id="settVessel" placeholder="Vessel name" oninput="saveSettings()"/></div>
+          <div class="sr"><div><div class="sr-lbl">Prepared By</div><div class="sr-sub">Your name / rank</div></div><input type="text" id="settPrepBy" placeholder="Name / Rank" oninput="saveSettings()"/></div>
+        </div>
+      </div>
+      <div class="ss"><div class="st">Delete PIN</div>
+        <div class="sc"><div class="sr"><div><div class="sr-lbl">4-Digit PIN</div><div class="sr-sub" id="pinStatus">No PIN set</div></div><button class="btn btn-s" style="flex:none;padding:7px 12px;font-size:11px;" onclick="openSetPin()">&#128274; Set PIN</button></div></div>
+      </div>
+      <div class="ss"><div class="st">Monthly Snapshot</div>
+        <div class="sc"><div class="sr"><div><div class="sr-lbl">Save Snapshot</div><div class="sr-sub">Choose sections to snapshot</div></div><button class="btn btn-p" style="flex:none;padding:7px 14px;font-size:12px;" onclick="openSnapModal()">&#128248; Snapshot</button></div></div>
+      </div>
+      <div class="ss"><div class="st">Bulk Quantity Update</div>
+        <div class="sc"><div class="sr"><div><div class="sr-lbl">Update Multiple Items</div><div class="sr-sub">Update many items at once</div></div><button class="btn btn-w" style="flex:none;padding:7px 12px;font-size:11px;" onclick="openBulkModal()">&#128221; Bulk Update</button></div></div>
+      </div>
+      <div class="ss"><div class="st">Data</div>
+        <div class="sc">
+          <div class="sr"><div><div class="sr-lbl">Import Data</div><div class="sr-sub">From JSON backup (v3/v4 compatible)</div></div><button class="btn btn-s" style="flex:none;padding:7px 12px;font-size:11px;" onclick="document.getElementById('importFile').click()">&#128194; Import</button></div>
+          <div class="sr"><div><div class="sr-lbl">Export Backup</div><div class="sr-sub">Save all data as JSON</div></div><button class="btn btn-s" style="flex:none;padding:7px 12px;font-size:11px;" onclick="exportJSON()">&#128190; Export</button></div>
+        </div>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)"/>
+      </div>
+      <div class="ss"><div class="st">About</div>
+        <div class="sc">
+          <div class="sr"><div><div class="sr-lbl">Disclaimer</div><div class="sr-sub">Personal use only</div></div><button class="btn btn-s" style="flex:none;padding:7px 12px;font-size:11px;" onclick="showDisc()">View</button></div>
+          <div class="sr" style="cursor:pointer;user-select:none;"><div class="sr-lbl">MarineStock v5.0</div><div style="font-size:11px;color:var(--text2);">Firebase Cloud &#183; Phase 2 &#183; Tap 5x for Admin</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<button id="fab" onclick="openAddModal()">+</button>
+
+<!-- DISCLAIMER -->
+<div class="mbg center" id="discModal">
+  <div class="disc-box">
+    <div style="font-size:36px;margin-bottom:8px;">&#9875;</div>
+    <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--accent);margin-bottom:10px;letter-spacing:1px;">PERSONAL USE DISCLAIMER</div>
+    <div class="disc-txt">
+      <strong>MarineStock</strong> is developed and used for <strong>personal purposes only</strong> to assist in onboard inventory record-keeping and to automate manual paper-based processes.<br/><br/>
+      This application is <strong>NOT affiliated with, endorsed by, approved by, or representative of OSM Maritime Group or Ocean Infinity</strong>, or any of their subsidiaries, partners, or clients.<br/><br/>
+      Use is at the sole discretion and responsibility of the individual user. No proprietary company data is collected or transmitted beyond the user's own private Firebase database.<br/><br/>
+      <em>This tool is the digital equivalent of a personal notebook &#8212; replacing paper and pen with a convenient digital format.</em>
+    </div>
+    <button class="btn btn-p" style="width:100%;" onclick="acceptDisc()">I Understand &#8212; Continue</button>
+  </div>
+</div>
+
+<!-- ADD/EDIT ITEM -->
+<div class="mbg" id="itemModal">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="modalTitle">Add Item</div>
+    <input type="hidden" id="editId"/>
+    <div class="fg"><label class="flbl">Section</label><select class="fi" id="fieldSec" onchange="onSecChange()"></select></div>
+    <div class="fg"><label class="flbl">Item Name</label><input type="text" class="fi" id="fieldName" placeholder="e.g. Shell Omala S2 GX 220"/></div>
+    <div class="fg"><label class="flbl">Part Number <span style="color:var(--text3);font-size:10px;">(optional)</span></label><input type="text" class="fi" id="fieldPN" placeholder="e.g. 550027472"/></div>
+    <div class="fg"><label class="flbl">Supplier / Maker</label><input type="text" class="fi" id="fieldSupplier" placeholder="e.g. Shell, Castrol, Wilhelmsen..."/></div>
+    <div class="fg"><label class="flbl">Location</label>
+      <input type="text" class="fi" id="fieldLoc" list="locList" placeholder="e.g. Store Room A, E/R Locker"/>
+      <datalist id="locList"></datalist>
+    </div>
+    <div class="frow">
+      <div class="fg"><label class="flbl">Quantity</label><input type="number" class="fi" id="fieldQty" placeholder="0" min="0" step="0.1"/></div>
+      <div class="fg"><label class="flbl">Unit</label>
+        <select class="fi" id="fieldUnit"><option>L</option><option>kg</option><option>g</option><option>pcs</option><option>drums</option><option>cans</option><option>bottles</option><option>boxes</option><option>cartridge</option><option>pails</option><option>sets</option><option>rolls</option><option>pairs</option></select>
+      </div>
+    </div>
+    <div class="fg"><label class="flbl">Minimum Stock Level</label><input type="number" class="fi" id="fieldMin" placeholder="0" min="0" step="0.1"/></div>
+    <div class="fg"><label class="flbl">Remarks <span style="color:var(--text3);font-size:10px;">(optional)</span></label><input type="text" class="fi" id="fieldRem" placeholder="e.g. For ME main bearings"/></div>
+    <div id="soRow" class="cbrow" onclick="toggleCB('fieldSO')">
+      <input type="checkbox" id="fieldSO" onclick="event.stopPropagation();"/>
+      <label for="fieldSO" style="color:var(--text);">Include in <strong>Small Oils</strong> total (Engine Room Logbook)</label>
+    </div>
+    <div class="fg" id="msdsRow">
+      <label class="flbl">MSDS / SDS Document</label>
+      <div id="msdsCurrent" style="display:none;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+        <a id="msdsLink" href="#" target="_blank" style="font-size:12px;color:var(--teal);">&#128196; View current MSDS</a>
+        <span onclick="removeMSDS()" style="font-size:11px;color:var(--danger);cursor:pointer;">&#10005; Remove</span>
+      </div>
+      <div class="msds-area" onclick="document.getElementById('msdsFile').click()">&#128206; Tap to upload PDF (MSDS/SDS) &#8212; Max 5MB</div>
+      <input type="file" id="msdsFile" accept=".pdf" style="display:none" onchange="onMSDSSelect(event)"/>
+      <div class="prog-wrap" id="msdsProg"><div class="prog-bar" id="msdsProgBar" style="width:0%"></div></div>
+      <div style="font-size:10px;color:var(--text2);margin-top:4px;" id="msdsName"></div>
+    </div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeM('itemModal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveItem()">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- TX MODAL -->
+<div class="mbg" id="txModal">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle" id="txTitle">Update Quantity</div>
+    <input type="hidden" id="txItemId"/>
+    <div class="tx-type-row">
+      <div class="tx-tb active add" id="txBtnAdd" onclick="setTxType('add')">&#10133; RECEIVED / ADD</div>
+      <div class="tx-tb deduct" id="txBtnDed" onclick="setTxType('deduct')">&#10134; USED / DEDUCT</div>
+    </div>
+    <div class="fg"><label class="flbl">Date of Transaction</label><input type="date" class="fi" id="txDate"/></div>
+    <div class="fg"><label class="flbl">Quantity</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input type="number" class="fi" id="txQty" placeholder="0" min="0.1" step="0.1" style="flex:1;" oninput="updateTxPrev()"/>
+        <span id="txUnit" style="color:var(--text2);font-size:13px;min-width:30px;font-weight:600;"></span>
+      </div>
+    </div>
+    <div class="fg"><label class="flbl">Remarks <span style="color:var(--danger)">*</span></label><input type="text" class="fi" id="txRem" placeholder="e.g. PO received, Used for ME #1 bearings..."/></div>
+    <div class="frow">
+      <div class="fg"><label class="flbl">Crew Name</label><input type="text" class="fi" id="txCrewName" placeholder="e.g. Juan dela Cruz"/></div>
+      <div class="fg"><label class="flbl">Position / Rank</label><input type="text" class="fi" id="txCrewRank" placeholder="e.g. 2nd Engineer"/></div>
+    </div>
+    <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 13px;margin-bottom:12px;font-size:12px;color:var(--text2);">
+      Current: <span id="txCurr" style="color:var(--text);font-weight:600;"></span> &#8594; After: <span id="txAfter" style="font-weight:700;"></span>
+    </div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeM('txModal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveTx()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- BULK UPDATE -->
+<div class="mbg" id="bulkModal">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">&#128221; Bulk Quantity Update</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px;">Update quantities for multiple items. Leave blank to skip.</div>
+    <div class="fg"><label class="flbl">Filter by Section</label><select class="fi" id="bulkSecF" onchange="renderBulkItems()"></select></div>
+    <div class="fg"><label class="flbl">Remarks for all updates <span style="color:var(--danger)">*</span></label><input type="text" class="fi" id="bulkRem" placeholder="e.g. Monthly inventory check 01 Apr 2026"/></div>
+    <div id="bulkList" style="max-height:300px;overflow-y:auto;"></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeM('bulkModal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveBulk()">&#10003; Save All Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- PIN VERIFY -->
+<div class="mbg center" id="pinModal">
+  <div class="modal ctr">
+    <div class="mtitle" style="text-align:center;margin-bottom:3px;">&#128274; PIN Required</div>
+    <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:4px;">Enter PIN to delete:</div>
+    <div style="text-align:center;font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;color:var(--danger);margin-bottom:12px;" id="pinItemName"></div>
+    <div class="pin-row"><div class="pin-dot" id="pd0"></div><div class="pin-dot" id="pd1"></div><div class="pin-dot" id="pd2"></div><div class="pin-dot" id="pd3"></div></div>
+    <div class="pin-kp">
+      <div class="pk" onclick="pinK('1')">1</div><div class="pk" onclick="pinK('2')">2</div><div class="pk" onclick="pinK('3')">3</div>
+      <div class="pk" onclick="pinK('4')">4</div><div class="pk" onclick="pinK('5')">5</div><div class="pk" onclick="pinK('6')">6</div>
+      <div class="pk" onclick="pinK('7')">7</div><div class="pk" onclick="pinK('8')">8</div><div class="pk" onclick="pinK('9')">9</div>
+      <div class="pk empty"></div><div class="pk" onclick="pinK('0')">0</div><div class="pk" style="font-size:16px;color:var(--text2);" onclick="pinBk()">&#9003;</div>
+    </div>
+    <div class="macts" style="margin-top:14px;"><button class="btn btn-s" onclick="closeM('pinModal')">Cancel</button></div>
+  </div>
+</div>
+
+<!-- SET PIN -->
+<div class="mbg center" id="setPinModal">
+  <div class="modal ctr">
+    <div class="mtitle" style="text-align:center;margin-bottom:3px;">Set Delete PIN</div>
+    <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:4px;" id="setPinSub">Enter new 4-digit PIN</div>
+    <div style="height:4px;"></div>
+    <div class="pin-row"><div class="pin-dot" id="spd0"></div><div class="pin-dot" id="spd1"></div><div class="pin-dot" id="spd2"></div><div class="pin-dot" id="spd3"></div></div>
+    <div class="pin-kp">
+      <div class="pk" onclick="sPinK('1')">1</div><div class="pk" onclick="sPinK('2')">2</div><div class="pk" onclick="sPinK('3')">3</div>
+      <div class="pk" onclick="sPinK('4')">4</div><div class="pk" onclick="sPinK('5')">5</div><div class="pk" onclick="sPinK('6')">6</div>
+      <div class="pk" onclick="sPinK('7')">7</div><div class="pk" onclick="sPinK('8')">8</div><div class="pk" onclick="sPinK('9')">9</div>
+      <div class="pk empty"></div><div class="pk" onclick="sPinK('0')">0</div><div class="pk" style="font-size:16px;color:var(--text2);" onclick="sPinBk()">&#9003;</div>
+    </div>
+    <div class="macts" style="margin-top:14px;">
+      <button class="btn btn-s" onclick="closeM('setPinModal')">Cancel</button>
+      <button class="btn btn-d" id="clearPinBtn" onclick="clearPin()" style="display:none;">Remove PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD SECTION -->
+<div class="mbg center" id="addSecModal">
+  <div class="modal ctr">
+    <div class="mhandle" style="margin-bottom:14px;"></div>
+    <div class="mtitle">Add New Section</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Requires admin PIN authorization.</div>
+    <div class="fg"><label class="flbl">Section Name</label><input type="text" class="fi" id="newSecName" placeholder="e.g. Deck Equipment"/></div>
+    <div class="fg"><label class="flbl">Icon (emoji)</label><input type="text" class="fi" id="newSecIcon" placeholder="e.g. &#128295;" maxlength="2"/></div>
+    <div class="fg"><label class="flbl">Admin PIN</label><input type="password" class="fi" id="newSecPin" placeholder="Enter PIN" maxlength="4" inputmode="numeric"/></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeM('addSecModal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveCustomSec()">Add Section</button>
+    </div>
+  </div>
+</div>
+
+<!-- SNAPSHOT -->
+<div class="mbg" id="snapModal">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">&#128248; Save Monthly Snapshot</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;">Select which sections to include:</div>
+    <div class="echks" id="snapChecks"></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeM('snapModal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveSnapshot()">&#128248; Save Snapshot</button>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT -->
+<div class="mbg" id="exportModal">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">&#128196; Export Report</div>
+    <div class="fg"><label class="flbl">Format</label>
+      <select class="fi" id="exportFmt" onchange="updateExpUI()">
+        <option value="pdf-simple">PDF &#8212; Simple Table List</option>
+        <option value="pdf-monthly">PDF &#8212; Monthly Report</option>
+        <option value="pdf-comparison">PDF &#8212; Month Comparison</option>
+        <option value="pdf-txlog">PDF &#8212; Transaction Log</option>
+        <option value="excel-eco">Excel &#8212; Eco Online Format (.xlsx)</option>
+      </select>
+    </div>
+    <div id="expSecWrap"><label class="flbl">Include Sections</label><div class="echks" id="expChecks"></div></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeM('exportModal')">Cancel</button>
+      <button class="btn btn-p" onclick="runExport()">&#128229; Export</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLOUD SETUP -->
+<div class="mbg" id="cloudModal">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle">&#9729;&#65039; Cloud Setup</div>
+    <div class="setup-step"><div class="ssn">Step 1</div><div class="sst">Create Google Account</div><div class="ssd">Go to <a href="https://accounts.google.com/signup" target="_blank">accounts.google.com/signup</a></div></div>
+    <div class="setup-step"><div class="ssn">Step 2</div><div class="sst">Create Firebase Project</div><div class="ssd">Go to <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a> &#8594; Add project &#8594; name it <em>marinestock</em> &#8594; disable Analytics &#8594; Create</div></div>
+    <div class="setup-step"><div class="ssn">Step 3</div><div class="sst">Add Web App &amp; Get Config</div><div class="ssd">Click &lt;/&gt; icon &#8594; Register app &#8594; copy the firebaseConfig values</div></div>
+    <div class="setup-step"><div class="ssn">Step 4</div><div class="sst">Enable Firestore + Storage</div><div class="ssd">Build &#8594; Firestore Database &#8594; Create (test mode)<br/>Build &#8594; Storage &#8594; Get started (test mode)</div></div>
+    <div class="setup-step"><div class="ssn">Step 5</div><div class="sst">Paste Your Config</div>
+      <textarea class="cfg-ta" id="configInput" placeholder='{"apiKey":"...","authDomain":"...","projectId":"...","storageBucket":"...","messagingSenderId":"...","appId":"..."}' style="min-height:110px;"></textarea>
+    </div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeM('cloudModal')">Cancel</button>
+      <button class="btn btn-p" onclick="applyFBConfig()">&#9729;&#65039; Connect</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ADMIN REMOVED - SUPER ADMIN ONLY -->
+<div class="mbg center" id="adminPinModal">
+  <div class="modal ctr">
+    <div class="mtitle" style="text-align:center;margin-bottom:3px;">&#128272; Master Admin</div>
+    <div style="text-align:center;font-size:12px;color:var(--text2);margin-bottom:4px;" id="adminPinSub">Enter Admin PIN</div>
+    <div style="height:4px;"></div>
+    <div class="pin-row"><div class="pin-dot" id="apd0"></div><div class="pin-dot" id="apd1"></div><div class="pin-dot" id="apd2"></div><div class="pin-dot" id="apd3"></div></div>
+    <div class="pin-kp">
+      <div class="pk" >1</div><div class="pk" >2</div><div class="pk" >3</div>
+      <div class="pk" >4</div><div class="pk" >5</div><div class="pk" >6</div>
+      <div class="pk" >7</div><div class="pk" >8</div><div class="pk" >9</div>
+      <div class="pk empty"></div><div class="pk" >0</div><div class="pk" style="font-size:16px;" >&#9003;</div>
+    </div>
+    <div style="margin-top:10px;text-align:center;">
+      <button class="btn btn-s" style="font-size:11px;flex:none;padding:7px 14px;" onclick="showAdminRecovery()">Forgot PIN? Use Recovery Key</button>
+    </div>
+    <div class="macts" style="margin-top:10px;"><button class="btn btn-s" onclick="">Cancel</button></div>
+  </div>
+</div>
+
+<!-- ADMIN RECOVERY KEY MODAL -->
+<div class="mbg center" id="adminRecModal">
+  <div class="modal ctr">
+    <div class="mtitle" style="text-align:center;">&#128273; Recovery Key</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:12px;text-align:center;">Enter your Super Recovery Key to reset the Admin PIN.</div>
+    <div class="fg"><input type="text" class="fi" id="adminRecKeyInp" placeholder="ARMA-86-MASTER-XXXX-XXXX" style="text-transform:uppercase;letter-spacing:1px;text-align:center;" oninput="this.value=this.value.toUpperCase()"/></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="">Cancel</button>
+      <button class="btn btn-p" onclick="verifyAdminRecKey()">Verify Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL MODAL -->
+<div class="mbg" id="adminModal">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--text);">&#128272; Master Admin Panel</div>
+      <button class="btn btn-d" style="flex:none;padding:6px 12px;font-size:11px;" onclick="closeM('adminModal')">Close</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:8px 12px;margin-bottom:14px;">
+      Managing: <strong id="adminVesselLbl"></strong>
+    </div>
+    <div id="adminContent"></div>
+  </div>
+</div>
+
+<!-- SUPER RECOVERY KEY DISPLAY (first admin setup) -->
+<div class="mbg center" id="superKeyModal">
+  <div class="modal ctr">
+    <div style="font-size:32px;text-align:center;margin-bottom:8px;">&#128272;</div>
+    <div class="mtitle" style="text-align:center;">Admin Setup Complete</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:14px;text-align:center;">Your Super Recovery Key is shown below. <strong>Save this somewhere safe.</strong> It will not be shown again.</div>
+    <div style="background:var(--bg3);border:2px solid var(--accent);border-radius:10px;padding:14px;text-align:center;margin-bottom:14px;">
+      <div style="font-size:10px;color:var(--text2);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px;">Super Recovery Key</div>
+      <div style="font-family:monospace;font-size:14px;font-weight:700;color:var(--accent);letter-spacing:2px;word-break:break-all;" id="superKeyDisplay"></div>
+    </div>
+    <div style="font-size:11px;color:var(--danger);margin-bottom:14px;text-align:center;">&#9888;&#65039; Store this in a safe place onboard. Do not share with crew.</div>
+    <button class="btn btn-p" style="width:100%;" onclick="closeM('superKeyModal');">I Have Saved It &#10003;</button>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script>
+// ============================================================
+// MARINESTOCK V5 - PHASE 1
+// VESSEL CONFIGURATION - Change VESSEL_ID for each vessel
+// ============================================================
+var VESSEL_ID = '8606';
+var VESSEL_NAME = 'MV Armada 8606';
+
+// ============================================================
+// FIREBASE CONFIG - Embedded. Change only if Firebase migrates.
+// Users can also override via Settings > Cloud Setup
+// ============================================================
+var FIREBASE_CONFIG = {
+  apiKey: "",
+  authDomain: "",
+  projectId: "",
+  storageBucket: "",
+  messagingSenderId: "",
+  appId: ""
+};
+
+// ============================================================
+// BUILT-IN SECTIONS
+// ============================================================
+var BUILT_IN = [
+  {id:'lube',  label:'Lube Oil',         icon:'&#128738;', color:'#00897b',hasMSDS:true, hasSO:true},
+  {id:'chem',  label:'Chemicals',        icon:'&#9879;&#65039;', color:'#f57c00',hasMSDS:true, hasSO:false},
+  {id:'grease',label:'Grease',           icon:'&#128997;', color:'#6a1b9a',hasMSDS:true, hasSO:false},
+  {id:'paint', label:'Paint',            icon:'&#127912;', color:'#c62828',hasMSDS:true, hasSO:false},
+  {id:'office',label:'Office Stationery',icon:'&#128206;', color:'#2e7d32',hasMSDS:false,hasSO:false},
+  {id:'galley',label:'Galley & Laundry', icon:'&#129366;', color:'#1565c0',hasMSDS:true, hasSO:false},
+  {id:'ppe',   label:'PPE',              icon:'&#129462;', color:'#4e342e',hasMSDS:false,hasSO:false},
+];
+var ALL_SECS = BUILT_IN.slice();
+
+// ============================================================
+// STATE
+// ============================================================
+var db = {items:[],transactions:[],history:[],settings:{vessel:VESSEL_NAME,prepBy:'',pin:''},customSections:[],chatMessages:[]};
+var curSec='home', editingId=null, txType='add', txFilter='all';
+var pinBuf='', pinDelId=null;
+var setPinBuf='', setPinStep=1, setPinFirst='';
+var pendingMSDSFile=null, pendingMSDSRemove=false;
+var isOnline = navigator.onLine;
+var rPinBuf='';
+var deviceId=null,deviceName=null;
+var _fs=null, _st=null, _ready=false, _unsubs=[];
+var curTheme = 'light';
+
+// ============================================================
+// FIREBASE
+// ============================================================
+function initFirebase() {
+  // Get config - localStorage override takes priority over embedded config
+  var cfg = null;
+  var saved = localStorage.getItem('marinestock_fb_config');
+  if (saved) {
+    try { cfg = JSON.parse(saved); } catch(e) { cfg = null; }
+  }
+  // Fall back to embedded config if no localStorage config
+  if (!cfg || !cfg.apiKey) {
+    cfg = FIREBASE_CONFIG;
+  }
+  // If still no valid config, show not-configured
+  if (!cfg || !cfg.apiKey || !cfg.projectId) {
+    updateSyncStatus('not-configured');
+    return;
+  }
+  // If already ready with same project, just re-attach listeners
+  if (_ready && _fs) {
+    startListeners();
+    return;
+  }
+  try {
+    updateSyncStatus('connecting');
+    var app;
+    try {
+      // Check if Firebase already initialized
+      app = firebase.app();
+      // If initialized but with different/empty config, delete and reinit
+      if (!app.options.apiKey || app.options.apiKey !== cfg.apiKey) {
+        app.delete().then(function(){
+          _ready = false; _fs = null; _st = null;
+          initFirebase();
+        });
+        return;
+      }
+    } catch(e) {
+      // Not initialized yet - initialize now
+      app = firebase.initializeApp(cfg);
+    }
+    _fs = firebase.firestore();
+    _st = firebase.storage();
+    // Enable offline persistence (non-blocking, ignore errors)
+    _fs.enablePersistence({synchronizeTabs:true})
+      .then(function(){ console.log('Offline persistence enabled'); })
+      .catch(function(e){ console.log('Persistence:', e.code); });
+    _ready = true;
+    console.log('Firebase initialized successfully');
+    startListeners();
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    updateSyncStatus('error');
+  }
+}
+
+function base() { return 'vessels/' + VESSEL_ID; }
+
+function startListeners() {
+  _unsubs.forEach(function(u){u();}); _unsubs = [];
+  _unsubs.push(_fs.collection(base()+'/items').onSnapshot(function(snap) {
+    db.items = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    refreshCurrent(); updateSmallOils(); updateExpUI(); renderHome();
+    updateSyncStatus('connected');
+  }, function(e){console.error(e); updateSyncStatus('error');}));
+  _unsubs.push(_fs.collection(base()+'/transactions').onSnapshot(function(snap) {
+    db.transactions = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    db.transactions.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+    renderTxLog(); renderHome();
+  }, function(e){console.error(e);}));
+  _unsubs.push(_fs.collection(base()+'/history').onSnapshot(function(snap) {
+    db.history = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    db.history.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+    renderHistory(); renderHome();
+  }, function(e){console.error(e);}));
+  _unsubs.push(_fs.collection(base()+'/settings').doc('main').onSnapshot(function(snap) {
+    if (snap.exists) { db.settings = Object.assign({},db.settings,snap.data()); applySettings(); }
+  }, function(e){console.error(e);}));
+  _unsubs.push(_fs.collection(base()+'/sections').onSnapshot(function(snap) {
+    db.customSections = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    rebuildSecs(); renderSidebar();
+  }, function(e){console.error(e);}));
+  // Chat listener
+  _unsubs.push(_fs.collection(base()+'/chat').orderBy('date','asc').onSnapshot(function(snap) {
+    db.chatMessages = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    renderChat(); renderSidebar();
+  }, function(e){console.error(e);}));
+}
+
+async function cloudSave(col, id, data) {
+  if (!_fs) return;
+  try { await _fs.collection(base()+'/'+col).doc(id).set(data); }
+  catch(e) { console.error(e); }
+}
+async function cloudDel(col, id) {
+  if (!_fs) return;
+  try { await _fs.collection(base()+'/'+col).doc(id).delete(); }
+  catch(e) { console.error(e); }
+}
+async function cloudSaveSettings(s) {
+  if (!_fs) return;
+  try { await _fs.doc(base()+'/settings/main').set(s); }
+  catch(e) { console.error(e); }
+}
+
+// ============================================================
+// OFFLINE
+// ============================================================
+window.addEventListener('online', function() {
+  isOnline=true; document.getElementById('offBanner').classList.remove('show');
+  if (_ready) updateSyncStatus('connected');
+  toast('&#128268; Back online &#8212; syncing...');
+});
+window.addEventListener('offline', function() {
+  isOnline=false; document.getElementById('offBanner').classList.add('show');
+  updateSyncStatus('offline');
+});
+
+// ============================================================
+// THEME
+// ============================================================
+function setTheme(t) {
+  curTheme=t; document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeIcon').innerHTML = t==='dark' ? '&#9790;' : '&#9788;';
+  localStorage.setItem('ms_v5_theme_'+VESSEL_ID,t);
+}
+function toggleTheme() { setTheme(curTheme==='light'?'dark':'light'); }
+
+// ============================================================
+// SYNC STATUS
+// ============================================================
+function updateSyncStatus(status) {
+  var badge=document.getElementById('syncBadge'), txt=document.getElementById('syncTxt');
+  badge.className='sync-badge '+status;
+  badge.querySelector('.sync-dot').className='sync-dot'+(status==='connecting'?' pulse':'');
+  var labels={connected:'&#9729;&#65039; Synced',connecting:'Connecting...',offline:'&#128268; Offline',
+    'not-configured':'Not Connected &#8212; Tap to Setup',error:'Sync Error'};
+  txt.innerHTML = labels[status]||status;
+  if (document.getElementById('settSyncSub')) document.getElementById('settSyncSub').innerHTML=labels[status]||status;
+  badge.onclick = ['not-configured','error'].includes(status) ? openCloudSetup : null;
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+function toggleSB(){document.getElementById('sb').classList.toggle('open');document.getElementById('sbOv').classList.toggle('open');}
+function closeSB(){document.getElementById('sb').classList.remove('open');document.getElementById('sbOv').classList.remove('open');}
+function renderSidebar() {
+  var h = '<span class="sb-lbl">Navigation</span>';
+  h += sbItem('home','&#127968;','Dashboard','var(--accent)');
+  h += '<span class="sb-lbl" style="margin-top:6px;">Inventory Sections</span>';
+  ALL_SECS.forEach(function(s) {
+    var items=db.items.filter(function(i){return i.section===s.id;});
+    var low=items.filter(function(i){return parseFloat(i.qty)<=parseFloat(i.min)&&parseFloat(i.min)>0;}).length;
+    var badge=low>0?'<span class="sb-low">&#9888; '+low+'</span>':'<span class="sb-cnt">'+items.length+'</span>';
+    var del=s.isCustom?'<span onclick="event.stopPropagation();delCustomSec(\''+s.id+'\')" style="font-size:11px;color:var(--danger);cursor:pointer;margin-left:4px;">&#10005;</span>':'';
+    h += sbItem(s.id,s.icon,s.label,s.color||'var(--accent)',badge,del);
+  });
+  h += '<div class="sb-add" onclick="openAddSecModal()">&#65291; Add Section</div>';
+  h += '<span class="sb-lbl" style="margin-top:6px;">Records</span>';
+  h += sbItem('txlog','&#128203;','Transaction Log','var(--warn)');
+  h += sbItem('history','&#128202;','History','var(--teal)');
+  // Chat with notification badge
+  var unreadChat = db.chatMessages ? db.chatMessages.filter(function(m){return m.sender==='admin'&&!m.read;}).length : 0;
+  var chatBadge = unreadChat > 0 ? '<span style="position:relative;"><span style="background:var(--danger);color:#fff;border-radius:50%;font-size:10px;font-weight:700;padding:1px 5px;margin-left:4px;">'+unreadChat+'</span></span>' : '';
+  h += sbItem('chat','&#128172;','Support Chat','var(--accent)',chatBadge);
+  document.getElementById('sbBody').innerHTML = h;
+}
+function sbItem(id,icon,label,color,badge,extra) {
+  badge=badge||''; extra=extra||'';
+  return '<div class="sb-item'+(curSec===id?' active':'')+'" style="--sc:'+color+'" onclick="showSection(\''+id+'\');closeSB();">'
+    +'<span class="sb-icon">'+icon+'</span><span class="sb-txt">'+label+'</span>'+badge+extra+'</div>';
+}
+
+// ============================================================
+// SECTION NAV
+// ============================================================
+function showSection(id) {
+  curSec=id;
+  document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');});
+  var p=document.getElementById('page-'+id); if(p)p.classList.add('active');
+  document.getElementById('fab').style.display=['txlog','history','settings','chat'].includes(id)?'none':'flex';
+  if(id==='home')renderHome();
+  else if(id==='txlog')renderTxLog();
+  else if(id==='history')renderHistory();
+  else if(id==='chat'){renderChat();markChatRead();}
+  else renderSec(id);
+  renderSidebar();
+}
+function refreshCurrent(){
+  if(curSec==='home')renderHome();
+  else if(curSec==='txlog')renderTxLog();
+  else if(curSec==='history')renderHistory();
+  else renderSec(curSec);
+}
+
+// ============================================================
+// HOME
+// ============================================================
+function renderHome() {
+  var el=document.getElementById('page-home'); if(!el) return;
+  var now=new Date();
+  var ds=now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  var prepBy=db.settings.prepBy||'Engineer';
+  var allI=db.items, low=allI.filter(function(i){return parseFloat(i.qty)<=parseFloat(i.min)&&parseFloat(i.min)>0;});
+  var mo=now.getMonth(), yr=now.getFullYear();
+  var moTx=db.transactions.filter(function(t){var d=new Date(t.date);return d.getMonth()===mo&&d.getFullYear()===yr;});
+  var soTotal=db.items.filter(function(i){return i.section==='lube'&&i.smallOil;}).reduce(function(s,i){return s+parseFloat(i.qty||0);},0);
+  var lastSnap=db.history[0];
+  var alerts=low.length?low.slice(0,5).map(function(i){
+    var s=ALL_SECS.find(function(x){return x.id===i.section;})||{icon:'&#128230;',label:i.section};
+    return '<div class="home-row"><div><div style="font-size:13px;font-weight:600;color:var(--text);">'+i.name+'</div>'
+      +(i.partNo?'<div style="font-size:10px;color:var(--accent);">PN: '+i.partNo+'</div>':'')
+      +'<div style="font-size:10px;color:var(--text2);">'+s.icon+' '+s.label+' &#183; '+(i.location||'No location')+'</div></div>'
+      +'<div style="text-align:right;"><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:16px;font-weight:800;color:var(--danger);">'+fQ(i.qty)+' '+i.unit+'</div>'
+      +'<div style="font-size:10px;color:var(--text2);">Min: '+fQ(i.min)+'</div></div></div>';
+  }).join(''):'<div style="padding:14px;font-size:11px;color:var(--text2);text-align:center;">No low stock items &#10003;</div>';
+  var recentTx=db.transactions.slice(0,4).map(function(t){
+    var c=t.txType==='add'?'var(--safe)':'var(--danger)';
+    var bg=t.txType==='add'?'rgba(46,125,50,0.1)':'rgba(211,47,47,0.1)';
+    return '<div class="home-row"><div style="width:26px;height:26px;border-radius:7px;background:'+bg+';display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">'+(t.txType==='add'?'&#10133;':'&#10134;')+'</div>'
+      +'<div style="flex:1;min-width:0;margin:0 8px;"><div style="font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+t.itemName+'</div>'
+      +'<div style="font-size:10px;color:var(--text2);">'+t.remarks+(t.crewName?' &#183; '+t.crewName:'')+'</div></div>'
+      +'<div style="font-size:13px;font-weight:800;color:'+c+';white-space:nowrap;">'+(t.txType==='add'?'+':'\u2212')+fQ(t.qty)+' '+t.unit+'</div></div>';
+  }).join('')||'<div style="padding:14px;font-size:11px;color:var(--text2);text-align:center;">No transactions yet</div>';
+  var catCards=ALL_SECS.map(function(s){
+    var cnt=db.items.filter(function(i){return i.section===s.id;}).length;
+    var lw=db.items.filter(function(i){return i.section===s.id&&parseFloat(i.qty)<=parseFloat(i.min)&&parseFloat(i.min)>0;}).length;
+    return '<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid '+s.color+';border-radius:var(--radius);padding:9px;cursor:pointer;box-shadow:var(--shadow);" onclick="showSection(\''+s.id+'\')">'
+      +'<div style="font-size:16px;">'+s.icon+'</div>'
+      +'<div style="font-family:\'Barlow Condensed\',sans-serif;font-size:18px;font-weight:800;color:var(--text);margin-top:3px;">'+cnt+'</div>'
+      +'<div style="font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;">'+s.label.split(' ')[0]+'</div>'
+      +(lw>0?'<div style="font-size:9px;color:var(--danger);margin-top:2px;">&#9888; '+lw+' low</div>':'')+' </div>';
+  }).join('');
+  el.innerHTML = '<div style="margin-bottom:12px;"><div style="font-size:12px;color:var(--text2);">'+ds+'</div>'
+    +'<div style="font-size:18px;font-weight:700;color:var(--text);margin-top:2px;">Good day, '+(deviceName||'Marine Crew')+' &#128075;</div></div>'
+    +'<div class="home-stats">'
+    +'<div class="hs"><div class="hsv">'+allI.length+'</div><div class="hsl">Total Items</div></div>'
+    +'<div class="hs"><div class="hsv" style="color:var(--danger);">'+low.length+'</div><div class="hsl">Low Stock</div></div>'
+    +'<div class="hs"><div class="hsv" style="color:var(--teal);">'+fQ(soTotal)+'L</div><div class="hsl">Small Oils</div></div>'
+    +'<div class="hs"><div class="hsv" style="color:var(--warn);">'+moTx.length+'</div><div class="hsl">Month TX</div></div></div>'
+    +'<div class="htitle">Sections Overview</div>'
+    +'<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-bottom:12px;">'+catCards+'</div>'
+    +'<div class="htitle">&#9888;&#65039; Low Stock Alerts</div>'
+    +'<div class="home-card" style="border-left:3px solid var(--danger);">'+alerts+'</div>'
+    +'<div class="htitle">Recent Transactions</div>'
+    +'<div class="home-card">'+recentTx+'</div>'
+    +'<div class="htitle">Last Snapshot</div>'
+    +'<div style="background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--teal);border-radius:var(--radius);padding:11px 13px;display:flex;align-items:center;justify-content:space-between;box-shadow:var(--shadow);margin-bottom:8px;">'
+    +'<div><div style="font-size:11px;color:var(--teal);font-weight:700;text-transform:uppercase;letter-spacing:1px;">Last Snapshot</div>'
+    +'<div style="font-size:14px;color:var(--text);font-weight:600;margin-top:2px;">'+(lastSnap?lastSnap.label:'No snapshots yet')+'</div>'
+    +(lastSnap?'<div style="font-size:10px;color:var(--text2);">'+new Date(lastSnap.date).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+'</div>':'')
+    +'</div><button class="btn btn-p" style="flex:none;padding:8px 14px;font-size:12px;" onclick="openSnapModal()">&#128248; Snapshot</button></div>';
+}
+
+// ============================================================
+// SECTIONS
+// ============================================================
+function rebuildSecs() {
+  ALL_SECS = BUILT_IN.slice().concat((db.customSections||[]).map(function(s){return Object.assign({},s,{hasMSDS:true,hasSO:false,isCustom:true});}));
+  ALL_SECS.forEach(function(s){
+    if(!document.getElementById('page-'+s.id)){
+      var p=document.createElement('div'); p.className='page'; p.id='page-'+s.id;
+      var soHtml=s.id==='lube'?'<div class="so-banner" id="so-banner" style="display:none;"><div><div style="font-size:11px;color:var(--teal);text-transform:uppercase;letter-spacing:1px;font-weight:600;">&#128738; Small Oils Total</div><div style="font-size:10px;color:var(--text2);">Tagged items</div></div><div style="text-align:right;"><div style="font-family:\'Barlow Condensed\',sans-serif;font-size:22px;font-weight:800;color:var(--teal);" id="soTotal">0 L</div><div style="font-size:10px;color:var(--text2);" id="soCount">0 items</div></div></div>':'';
+      p.innerHTML='<div class="stats-row" id="stats-'+s.id+'"></div>'+soHtml+'<div class="search-bar"><input type="text" placeholder="Search '+s.label+'..." id="search-'+s.id+'" oninput="renderSec(\''+s.id+'\')"/></div><div class="items-list" id="list-'+s.id+'"></div>';
+      document.getElementById('pages').appendChild(p);
+    }
+  });
+  populateSecDrop(); updateExpUI(); buildBulkSecF();
+}
+
+function renderSec(id) {
+  var search=(document.getElementById('search-'+id)||{}).value; search=search?search.toLowerCase():'';
+  var sec=ALL_SECS.find(function(s){return s.id===id;})||{icon:'&#128230;',color:'#888'};
+  var all=db.items.filter(function(i){return i.section===id;});
+  var items=all.filter(function(i){return !search||i.name.toLowerCase().includes(search)||(i.location||'').toLowerCase().includes(search)||(i.partNo||'').toLowerCase().includes(search);});
+  var low=all.filter(function(i){return parseFloat(i.qty)<=parseFloat(i.min)&&parseFloat(i.min)>0;});
+  var sEl=document.getElementById('stats-'+id);
+  if(sEl)sEl.innerHTML='<div class="s-card"><div class="s-val">'+all.length+'</div><div class="s-lbl">Total</div></div>'
+    +'<div class="s-card"><div class="s-val" style="color:var(--danger);">'+low.length+'</div><div class="s-lbl">Low Stock</div></div>'
+    +'<div class="s-card"><div class="s-val">'+all.filter(function(i){return parseFloat(i.qty)>0;}).length+'</div><div class="s-lbl">In Stock</div></div>';
+  if(id==='lube'){var sb=document.getElementById('so-banner');if(sb){updateSmallOils();sb.style.display='flex';}}
+  var list=document.getElementById('list-'+id); if(!list) return;
+  if(!items.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">'+sec.icon+'</div><div style="font-size:13px;">'+(search?'No results.':'No items yet. Tap + to add.')+'</div></div>';return;}
+  items.sort(function(a,b){var aL=parseFloat(a.qty)<=parseFloat(a.min)&&parseFloat(a.min)>0,bL=parseFloat(b.qty)<=parseFloat(b.min)&&parseFloat(b.min)>0;if(aL!==bL)return aL?-1:1;return a.name.localeCompare(b.name);});
+  list.innerHTML=items.map(function(i){
+    var qty=parseFloat(i.qty)||0, mn=parseFloat(i.min)||0;
+    var pct=mn>0?Math.min(100,Math.round((qty/(mn*2))*100)):50;
+    var isLow=qty<=mn&&mn>0;
+    var barC=isLow?'var(--danger)':(pct<60?'var(--warn)':'var(--safe)');
+    return '<div class="item-card'+(isLow?' low-stock':'')+'" style="--sc:'+(sec.color||'#888')+'">'
+      +'<div class="item-top"><div class="item-nw">'
+      +'<span class="item-name">'+i.name+'</span>'
+      +(i.smallOil?'<span class="badge bdg-t">&#128202; SMALL OIL</span>':'')
+      +(i.msdsUrl?'<span class="badge bdg-a" onclick="window.open(\''+i.msdsUrl+'\',\'_blank\')">&#128196; MSDS</span>':'')
+      +(i.partNo?'<span class="badge bdg-p">PN: '+i.partNo+'</span>':'')
+      +'</div><div class="item-acts">'
+      +'<div class="btn-icon" onclick="openTxModal(\''+i.id+'\')">&#9878;&#65039;</div>'
+      +'<div class="btn-icon" onclick="openEditModal(\''+i.id+'\')">&#9999;&#65039;</div>'
+      +'<div class="btn-icon" onclick="reqDelete(\''+i.id+'\')">&#128465;</div>'
+      +'</div></div>'
+      +'<div class="item-meta">'
+      +'<span class="tag loc">&#128205; '+(i.location||'No location')+'</span>'
+      +(i.supplier?'<span class="tag">&#127981; '+i.supplier+'</span>':'')
+      +(i.partNo?'<span class="tag pn">&#128273; '+i.partNo+'</span>':'')
+      +(i.remarks?'<span class="tag">&#128172; '+i.remarks+'</span>':'')
+      +'</div>'
+      +'<div class="item-qty-row"><div>'
+      +'<div style="display:flex;align-items:baseline;gap:4px;"><span class="qty-n">'+fQ(qty)+'</span><span class="qty-u">'+i.unit+'</span></div>'
+      +'<div class="qty-m'+(isLow?' warn':'')+'">Min: '+fQ(mn)+' '+i.unit+(isLow?' &#9888;&#65039; LOW':'')+'</div>'
+      +'<div class="qty-bar-wrap"><div class="qty-bar" style="width:'+pct+'%;background:'+barC+'"></div></div>'
+      +'</div><div class="qty-controls">'
+      +'<div class="qty-btn add-btn" onclick="quickTx(\''+i.id+'\',\'add\')">&#10133; ADD</div>'
+      +'<div class="qty-btn ded-btn" onclick="quickTx(\''+i.id+'\',\'deduct\')">&#10134; USE</div>'
+      +'</div></div></div>';
+  }).join('');
+}
+
+function updateSmallOils(){
+  var so=db.items.filter(function(i){return i.section==='lube'&&i.smallOil;});
+  var total=so.reduce(function(s,i){return s+parseFloat(i.qty||0);},0);
+  var e1=document.getElementById('soTotal'),e2=document.getElementById('soCount');
+  if(e1)e1.textContent=fQ(total)+' L'; if(e2)e2.textContent=so.length+' item'+(so.length!==1?'s':'');
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function applySettings(){
+  var v=db.settings.vessel||VESSEL_NAME;
+  document.getElementById('hdrVessel').textContent=v;
+  document.getElementById('sbVessel').textContent=v;
+  if(document.getElementById('settVessel'))document.getElementById('settVessel').value=db.settings.vessel||VESSEL_NAME;
+  if(document.getElementById('settPrepBy'))document.getElementById('settPrepBy').value=db.settings.prepBy||'';
+  if(document.getElementById('pinStatus'))document.getElementById('pinStatus').textContent=db.settings.pin?'PIN is set':'No PIN set';
+  if(document.getElementById('clearPinBtn'))document.getElementById('clearPinBtn').style.display=db.settings.pin?'flex':'none';
+}
+function saveSettings(){
+  db.settings.vessel=document.getElementById('settVessel').value;
+  db.settings.prepBy=document.getElementById('settPrepBy').value;
+  localStorage.setItem('ms_v5_settings_'+VESSEL_ID,JSON.stringify(db.settings));
+  applySettings();
+  if(_fs)cloudSaveSettings(db.settings);
+}
+
+// ============================================================
+// LOCATION AUTOCOMPLETE
+// ============================================================
+function refreshLocSugg(){
+  var dl=document.getElementById('locList'); if(!dl) return;
+  var locs=[]; db.items.forEach(function(i){if(i.location&&!locs.includes(i.location))locs.push(i.location);});
+  dl.innerHTML=locs.map(function(l){return '<option value="'+l.replace(/"/g,'&quot;')+'">'; }).join('');
+}
+
+// ============================================================
+// ITEM MODAL
+// ============================================================
+function populateSecDrop(){
+  var sel=document.getElementById('fieldSec'); if(!sel) return;
+  sel.innerHTML=ALL_SECS.map(function(s){return '<option value="'+s.id+'">'+s.icon+' '+s.label+'</option>';}).join('');
+}
+function onSecChange(){
+  var sid=document.getElementById('fieldSec').value;
+  var sec=ALL_SECS.find(function(s){return s.id===sid;})||{};
+  document.getElementById('soRow').style.display=sec.hasSO?'flex':'none';
+  document.getElementById('msdsRow').style.display=sec.hasMSDS!==false?'block':'none';
+}
+function openAddModal(){
+  if(!deviceId){toast('&#9888;&#65039; Device not activated. Contact admin.');return;}
+  if(!_ready&&isOnline){toast('&#9888;&#65039; Connect to cloud first (Settings &#8594; &#9729;&#65039; Setup)');return;}
+  if(!isOnline){toast('&#9888;&#65039; Cannot add items while offline.');return;}
+  editingId=null; pendingMSDSFile=null; pendingMSDSRemove=false;
+  document.getElementById('modalTitle').textContent='Add Item';
+  document.getElementById('editId').value='';
+  ['fieldName','fieldPN','fieldSupplier','fieldLoc','fieldRem'].forEach(function(f){document.getElementById(f).value='';});
+  document.getElementById('fieldQty').value=''; document.getElementById('fieldMin').value=''; document.getElementById('fieldUnit').value='L';
+  document.getElementById('fieldSO').checked=false;
+  document.getElementById('msdsCurrent').style.display='none'; document.getElementById('msdsName').textContent=''; document.getElementById('msdsProg').style.display='none';
+  var sel=document.getElementById('fieldSec');
+  if(sel){var si=ALL_SECS.find(function(s){return s.id===curSec;});sel.value=si?curSec:ALL_SECS[0].id;}
+  onSecChange(); refreshLocSugg(); document.getElementById('itemModal').classList.add('open');
+}
+function openEditModal(id){
+  var item=db.items.find(function(i){return i.id===id;}); if(!item)return;
+  editingId=id; pendingMSDSFile=null; pendingMSDSRemove=false;
+  document.getElementById('modalTitle').textContent='Edit Item';
+  document.getElementById('editId').value=id;
+  document.getElementById('fieldName').value=item.name||'';
+  document.getElementById('fieldPN').value=item.partNo||'';
+  document.getElementById('fieldSupplier').value=item.supplier||'';
+  document.getElementById('fieldLoc').value=item.location||'';
+  document.getElementById('fieldQty').value=item.qty; document.getElementById('fieldUnit').value=item.unit||'L';
+  document.getElementById('fieldMin').value=item.min||0; document.getElementById('fieldRem').value=item.remarks||'';
+  document.getElementById('fieldSO').checked=!!item.smallOil;
+  var sel=document.getElementById('fieldSec'); if(sel)sel.value=item.section||BUILT_IN[0].id;
+  if(item.msdsUrl){document.getElementById('msdsCurrent').style.display='flex';document.getElementById('msdsLink').href=item.msdsUrl;}
+  else document.getElementById('msdsCurrent').style.display='none';
+  document.getElementById('msdsName').textContent=''; document.getElementById('msdsProg').style.display='none';
+  onSecChange(); refreshLocSugg(); document.getElementById('itemModal').classList.add('open');
+}
+function toggleCB(id){var cb=document.getElementById(id);cb.checked=!cb.checked;}
+function onMSDSSelect(e){
+  var f=e.target.files[0]; if(!f)return;
+  if(f.type!=='application/pdf'){toast('&#9888;&#65039; Please select a PDF file');return;}
+  if(f.size>5*1024*1024){toast('&#9888;&#65039; File too large (max 5MB)');return;}
+  pendingMSDSFile=f; document.getElementById('msdsName').textContent='Selected: '+f.name; e.target.value='';
+}
+function removeMSDS(){pendingMSDSRemove=true;document.getElementById('msdsCurrent').style.display='none';}
+
+async function saveItem(){
+  var name=document.getElementById('fieldName').value.trim(); if(!name){toast('&#9888;&#65039; Item name required');return;}
+  var secId=document.getElementById('fieldSec').value;
+  var qty=parseFloat(document.getElementById('fieldQty').value)||0;
+  var min=parseFloat(document.getElementById('fieldMin').value)||0;
+  var unit=document.getElementById('fieldUnit').value;
+  var location=document.getElementById('fieldLoc').value.trim();
+  var supplier=document.getElementById('fieldSupplier').value.trim();
+  var partNo=document.getElementById('fieldPN').value.trim();
+  var remarks=document.getElementById('fieldRem').value.trim();
+  var sec=ALL_SECS.find(function(s){return s.id===secId;})||{};
+  var smallOil=sec.hasSO?document.getElementById('fieldSO').checked:false;
+  var msdsUrl=editingId?(db.items.find(function(i){return i.id===editingId;})||{}).msdsUrl||'':'';
+  if(pendingMSDSRemove&&msdsUrl){if(_st)try{await _st.refFromURL(msdsUrl).delete();}catch(e){};msdsUrl='';}
+  if(pendingMSDSFile&&_st){
+    var iId=editingId||Date.now().toString();
+    document.getElementById('msdsProg').style.display='block';
+    document.getElementById('msdsName').textContent='Uploading...';
+    try{
+      var ref=_st.ref('msds/'+VESSEL_ID+'/'+iId+'_'+pendingMSDSFile.name);
+      var task=ref.put(pendingMSDSFile);
+      task.on('state_changed',function(s){document.getElementById('msdsProgBar').style.width=Math.round(s.bytesTransferred/s.totalBytes*100)+'%';});
+      await task; msdsUrl=await ref.getDownloadURL();
+      document.getElementById('msdsName').textContent='MSDS uploaded!';
+    }catch(e){console.error(e);document.getElementById('msdsName').textContent='Upload failed - item saved without MSDS';}
+    document.getElementById('msdsProg').style.display='none';
+  }
+  var iId2=editingId||Date.now().toString();
+  var item={id:iId2,name:name,section:secId,qty:qty,unit:unit,min:min,location:location,supplier:supplier,partNo:partNo,remarks:remarks,smallOil:smallOil,msdsUrl:msdsUrl,updated:new Date().toISOString()};
+  if(editingId){var idx=db.items.findIndex(function(i){return i.id===editingId;});if(idx>=0)db.items[idx]=Object.assign({},db.items[idx],item);}
+  else{item.created=new Date().toISOString();db.items.push(item);}
+  if(_fs)cloudSave('items',item.id,item);else renderSec(secId);
+  closeM('itemModal'); toast(editingId?'&#10003;&#65039; Item updated':'&#10003;&#65039; Item added');
+}
+
+// ============================================================
+// DELETE WITH PIN
+// ============================================================
+function reqDelete(id){
+  var item=db.items.find(function(i){return i.id===id;}); if(!item)return;
+  if(!db.settings.pin){if(!confirm('Delete "'+item.name+'"?'))return;doDelete(id);return;}
+  pinDelId=id; pinBuf=''; updPinDots();
+  document.getElementById('pinItemName').textContent='"'+item.name+'"';
+  document.getElementById('pinModal').classList.add('open');
+}
+function pinK(k){
+  if(pinBuf.length>=4)return;pinBuf+=k;updPinDots();
+  if(pinBuf.length===4)setTimeout(function(){
+    if(pinBuf===db.settings.pin){closeM('pinModal');doDelete(pinDelId);pinBuf='';}
+    else{[0,1,2,3].forEach(function(i){document.getElementById('pd'+i).classList.add('error');});
+      setTimeout(function(){pinBuf='';updPinDots();[0,1,2,3].forEach(function(i){document.getElementById('pd'+i).classList.remove('error');});},700);
+      toast('&#10060; Incorrect PIN');}
+  },100);
+}
+function pinBk(){if(pinBuf.length>0){pinBuf=pinBuf.slice(0,-1);updPinDots();}}
+function updPinDots(){[0,1,2,3].forEach(function(i){document.getElementById('pd'+i).classList.toggle('filled',i<pinBuf.length);});}
+function doDelete(id){
+  var item=db.items.find(function(i){return i.id===id;}); if(!item)return;
+  if(item.msdsUrl&&_st)try{_st.refFromURL(item.msdsUrl).delete();}catch(e){}
+  db.items=db.items.filter(function(i){return i.id!==id;});
+  if(_fs)cloudDel('items',id);else renderSec(item.section);
+  toast('&#128465; Item deleted');
+}
+
+// ============================================================
+// DELETE CUSTOM SECTION (only if empty)
+// ============================================================
+function delCustomSec(id){
+  var sec=ALL_SECS.find(function(s){return s.id===id;}); if(!sec||!sec.isCustom)return;
+  var cnt=db.items.filter(function(i){return i.section===id;}).length;
+  if(cnt>0){toast('&#9888;&#65039; Cannot delete "'+sec.label+'" &#8212; '+cnt+' item'+(cnt>1?'s':'')+' inside. Delete items first.');return;}
+  if(!db.settings.pin){if(!confirm('Delete section "'+sec.label+'"?'))return;doDelSec(id);return;}
+  var pin=prompt('Enter PIN to delete section "'+sec.label+'":');
+  if((pin||'')!==db.settings.pin){toast('&#10060; Incorrect PIN');return;}
+  doDelSec(id);
+}
+function doDelSec(id){
+  db.customSections=db.customSections.filter(function(s){return s.id!==id;});
+  if(_fs)_fs.collection(base()+'/sections').doc(id).delete().catch(function(){});
+  rebuildSecs();renderSidebar();
+  if(curSec===id)showSection('home');
+  toast('&#128465; Section deleted');
+}
+
+// ============================================================
+// SET PIN
+// ============================================================
+function openSetPin(){
+  setPinBuf='';setPinStep=1;setPinFirst='';
+  // If PIN exists, require old PIN first
+  if(db.settings.pin){
+    setPinStep=0; // step 0 = verify old PIN
+    document.getElementById('setPinSub').textContent='Enter your CURRENT PIN first';
+  } else {
+    document.getElementById('setPinSub').textContent='Enter new 4-digit PIN';
+  }
+  document.getElementById('clearPinBtn').style.display=db.settings.pin?'flex':'none';
+  updSPinDots();document.getElementById('setPinModal').classList.add('open');
+}
+function sPinK(k){
+  if(setPinBuf.length>=4)return;setPinBuf+=k;updSPinDots();
+  if(setPinBuf.length===4)setTimeout(function(){
+    if(setPinStep===0){
+      // Verify old PIN
+      if(setPinBuf===db.settings.pin){
+        setPinBuf='';setPinStep=1;document.getElementById('setPinSub').textContent='Enter new 4-digit PIN';updSPinDots();
+      } else {
+        [0,1,2,3].forEach(function(i){document.getElementById('spd'+i).classList.add('error');});
+        setTimeout(function(){setPinBuf='';updSPinDots();[0,1,2,3].forEach(function(i){document.getElementById('spd'+i).classList.remove('error');});},700);
+        toast('&#10060; Incorrect current PIN');
+      }
+    } else if(setPinStep===1){
+      setPinFirst=setPinBuf;setPinBuf='';setPinStep=2;document.getElementById('setPinSub').textContent='Confirm your new PIN';updSPinDots();
+    } else {
+      if(setPinBuf===setPinFirst){db.settings.pin=setPinBuf;saveSettings();closeM('setPinModal');toast('&#128274; PIN saved!');}
+      else{[0,1,2,3].forEach(function(i){document.getElementById('spd'+i).classList.add('error');});setTimeout(function(){setPinBuf='';setPinStep=1;setPinFirst='';document.getElementById('setPinSub').textContent='PINs did not match. Try again.';updSPinDots();[0,1,2,3].forEach(function(i){document.getElementById('spd'+i).classList.remove('error');});},700);}
+    }
+  },100);
+}
+function sPinBk(){if(setPinBuf.length>0){setPinBuf=setPinBuf.slice(0,-1);updSPinDots();}}
+function updSPinDots(){[0,1,2,3].forEach(function(i){document.getElementById('spd'+i).classList.toggle('filled',i<setPinBuf.length);});}
+function clearPin(){if(!confirm('Remove PIN?'))return;db.settings.pin='';saveSettings();closeM('setPinModal');applySettings();toast('&#128275; PIN removed');}
+
+// ============================================================
+// TX MODAL
+// ============================================================
+function quickTx(id,type){openTxModal(id);setTxType(type);}
+function openTxModal(id){
+  var item=db.items.find(function(i){return i.id===id;}); if(!item)return;
+  document.getElementById('txItemId').value=id; document.getElementById('txTitle').textContent=item.name;
+  document.getElementById('txUnit').textContent=item.unit; document.getElementById('txQty').value='';
+  document.getElementById('txRem').value=''; document.getElementById('txCrewName').value=''; document.getElementById('txCrewRank').value='';
+  document.getElementById('txDate').value=new Date().toISOString().slice(0,10);
+  updateTxPrev(); setTxType('add'); document.getElementById('txModal').classList.add('open');
+}
+function updateTxPrev(){
+  var id=document.getElementById('txItemId').value;
+  var item=db.items.find(function(i){return i.id===id;}); if(!item)return;
+  var curr=parseFloat(item.qty)||0, delta=parseFloat(document.getElementById('txQty').value)||0;
+  var after=txType==='add'?curr+delta:Math.max(0,curr-delta);
+  document.getElementById('txCurr').textContent=fQ(curr)+' '+item.unit;
+  var el=document.getElementById('txAfter');el.textContent=fQ(after)+' '+item.unit;el.style.color=txType==='add'?'var(--safe)':'var(--danger)';
+}
+function setTxType(type){
+  txType=type;
+  document.getElementById('txBtnAdd').classList.toggle('active',type==='add');document.getElementById('txBtnAdd').classList.toggle('add',type==='add');
+  document.getElementById('txBtnDed').classList.toggle('active',type==='deduct');document.getElementById('txBtnDed').classList.toggle('deduct',type==='deduct');
+  updateTxPrev();
+}
+function saveTx(){
+  var id=document.getElementById('txItemId').value;
+  var item=db.items.find(function(i){return i.id===id;}); if(!item)return;
+  var qty=parseFloat(document.getElementById('txQty').value);
+  var rem=document.getElementById('txRem').value.trim();
+  var txDate=document.getElementById('txDate').value;
+  var crewName=document.getElementById('txCrewName').value.trim();
+  var crewRank=document.getElementById('txCrewRank').value.trim();
+  if(!qty||qty<=0){toast('&#9888;&#65039; Enter a valid quantity');return;}
+  if(!rem){toast('&#9888;&#65039; Please enter remarks');return;}
+  if(!txDate){toast('&#9888;&#65039; Select a date');return;}
+  var before=parseFloat(item.qty)||0,after=txType==='add'?before+qty:Math.max(0,before-qty);
+  var d=new Date(txDate+'T'+new Date().toTimeString().slice(0,8));
+  var tx={id:Date.now().toString(),itemId:id,itemName:item.name,itemSection:item.section,unit:item.unit,txType:txType,qty:qty,before:before,after:after,remarks:rem,crewName:crewName,crewRank:crewRank,date:d.toISOString(),vesselId:VESSEL_ID};
+  db.transactions.unshift(tx); item.qty=after;
+  if(_fs){var batch=_fs.batch();batch.set(_fs.collection(base()+'/transactions').doc(tx.id),tx);batch.set(_fs.collection(base()+'/items').doc(item.id),item);batch.commit().catch(function(e){console.error(e);});}
+  else{renderSec(item.section);renderTxLog();}
+  closeM('txModal'); toast(txType==='add'?'&#10003;&#65039; Added '+fQ(qty)+' '+item.unit:'&#10003;&#65039; Deducted '+fQ(qty)+' '+item.unit);
+}
+
+// ============================================================
+// TX LOG
+// ============================================================
+function buildTxFilter(){
+  var el=document.getElementById('txFilter'); if(!el)return;
+  var h='<button class="fbt'+(txFilter==='all'?' active':'')+'" onclick="setTxF(\'all\')">All</button>'
+    +'<button class="fbt'+(txFilter==='add'?' active':'')+'" onclick="setTxF(\'add\')">&#10133; Received</button>'
+    +'<button class="fbt'+(txFilter==='deduct'?' active':'')+'" onclick="setTxF(\'deduct\')">&#10134; Used</button>';
+  ALL_SECS.forEach(function(s){h+='<button class="fbt'+(txFilter===s.id?' active':'')+'" onclick="setTxF(\''+s.id+'\')">'+s.icon+'</button>';});
+  el.innerHTML=h;
+}
+function setTxF(f){txFilter=f;buildTxFilter();renderTxLog();}
+function renderTxLog(){
+  var list=document.getElementById('txList'); if(!list)return;
+  var txs=db.transactions.slice();
+  if(txFilter==='add')txs=txs.filter(function(t){return t.txType==='add';});
+  else if(txFilter==='deduct')txs=txs.filter(function(t){return t.txType==='deduct';});
+  else if(txFilter!=='all')txs=txs.filter(function(t){return t.itemSection===txFilter;});
+  if(!txs.length){list.innerHTML='<div class="empty-state"><div class="empty-icon">&#128203;</div><div style="font-size:13px;">No transactions yet.</div></div>';return;}
+  list.innerHTML=txs.map(function(t){
+    var d=new Date(t.date),ds=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}),ts=d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    var sec=ALL_SECS.find(function(s){return s.id===t.itemSection;})||{icon:'&#128230;',label:t.itemSection||'',color:'#888'};
+    return '<div class="tx-entry"><div class="tx-icon '+t.txType+'">'+(t.txType==='add'?'&#10133;':'&#10134;')+'</div>'
+      +'<div class="tx-body"><div class="tx-name">'+t.itemName+'</div>'
+      +'<div class="tx-rem">'+t.remarks+'</div>'
+      +(t.crewName?'<div class="tx-crew">&#128100; '+t.crewName+(t.crewRank?' &#183; '+t.crewRank:'')+'</div>':'')
+      +'<div class="tx-meta"><span style="color:'+sec.color+';font-size:10px;">'+sec.icon+' '+sec.label+'</span> &#183; '+(t.txType==='add'?'Received':'Used')+' &#183; '+ds+' '+ts+'</div></div>'
+      +'<div class="tx-right"><div class="tx-qty '+t.txType+'">'+(t.txType==='add'?'+':'\u2212')+fQ(t.qty)+' '+t.unit+'</div>'
+      +'<div style="font-size:10px;color:var(--text2);">After: '+fQ(t.after)+' '+t.unit+'</div></div></div>';
+  }).join('');
+}
+
+// ============================================================
+// BULK UPDATE
+// ============================================================
+function buildBulkSecF(){
+  var sel=document.getElementById('bulkSecF'); if(!sel)return;
+  sel.innerHTML='<option value="all">All Sections</option>'+ALL_SECS.map(function(s){return'<option value="'+s.id+'">'+s.icon+' '+s.label+'</option>';}).join('');
+}
+function openBulkModal(){buildBulkSecF();renderBulkItems();document.getElementById('bulkRem').value='';document.getElementById('bulkModal').classList.add('open');}
+function renderBulkItems(){
+  var sf=document.getElementById('bulkSecF').value;
+  var items=db.items.filter(function(i){return sf==='all'||i.section===sf;}).sort(function(a,b){return a.name.localeCompare(b.name);});
+  var el=document.getElementById('bulkList');
+  if(!items.length){el.innerHTML='<div style="text-align:center;padding:20px;color:var(--text2);font-size:12px;">No items in this section</div>';return;}
+  el.innerHTML=items.map(function(i){
+    var sec=ALL_SECS.find(function(s){return s.id===i.section;})||{color:'#888'};
+    return '<div class="bulk-item" style="border-left:3px solid '+sec.color+'">'
+      +'<div class="bulk-name">'+i.name+(i.partNo?'<div style="font-size:10px;color:var(--accent);">PN: '+i.partNo+'</div>':'')+'</div>'
+      +'<div style="text-align:right;">'
+      +'<div style="font-size:10px;color:var(--text2);margin-bottom:2px;">Now: '+fQ(i.qty)+'</div>'
+      +'<div style="display:flex;align-items:center;gap:4px;">'
+      +'<input type="number" class="bulk-inp" id="bulk_'+i.id+'" placeholder="'+fQ(i.qty)+'" min="0" step="0.1"/>'
+      +'<span class="bulk-unit">'+i.unit+'</span></div></div></div>';
+  }).join('');
+}
+async function saveBulk(){
+  var rem=document.getElementById('bulkRem').value.trim();
+  if(!rem){toast('&#9888;&#65039; Enter remarks for all updates');return;}
+  var sf=document.getElementById('bulkSecF').value;
+  var items=db.items.filter(function(i){return sf==='all'||i.section===sf;});
+  var updates=[];
+  items.forEach(function(i){
+    var inp=document.getElementById('bulk_'+i.id);
+    if(!inp||inp.value==='')return;
+    var nq=parseFloat(inp.value);
+    if(isNaN(nq)||nq===parseFloat(i.qty))return;
+    updates.push({item:i,newQty:nq});
+  });
+  if(!updates.length){toast('&#9888;&#65039; No changes made');return;}
+  var batch=_fs?_fs.batch():null;
+  var now=new Date();
+  updates.forEach(function(u){
+    var before=parseFloat(u.item.qty)||0;
+    var tt=u.newQty>=before?'add':'deduct';
+    var qty=Math.abs(u.newQty-before);
+    var tx={id:Date.now().toString()+'_'+u.item.id,itemId:u.item.id,itemName:u.item.name,itemSection:u.item.section,unit:u.item.unit,txType:tt,qty:qty,before:before,after:u.newQty,remarks:rem+' (Bulk Update)',crewName:'',crewRank:'',date:now.toISOString(),vesselId:VESSEL_ID};
+    u.item.qty=u.newQty;
+    if(batch){batch.set(_fs.collection(base()+'/transactions').doc(tx.id),tx);batch.set(_fs.collection(base()+'/items').doc(u.item.id),u.item);}
+  });
+  if(batch)batch.commit().catch(function(e){console.error(e);});
+  closeM('bulkModal'); toast('&#10003;&#65039; '+updates.length+' item'+(updates.length>1?'s':'')+' updated!');
+  renderSec(curSec); renderTxLog();
+}
+
+// ============================================================
+// SNAPSHOT
+// ============================================================
+function openSnapModal(){
+  document.getElementById('snapChecks').innerHTML=ALL_SECS.map(function(s){
+    return '<label class="echk-row"><input type="checkbox" class="snap-chk" data-id="'+s.id+'" checked/>'
+      +'<span style="font-size:18px;">'+s.icon+'</span>'
+      +'<div><div style="font-size:13px;font-weight:500;color:var(--text);">'+s.label+'</div>'
+      +'<div style="font-size:11px;color:var(--text2);">'+db.items.filter(function(i){return i.section===s.id;}).length+' items</div></div></label>';
+  }).join('');
+  document.getElementById('snapModal').classList.add('open');
+}
+function saveSnapshot(){
+  var checked=[].slice.call(document.querySelectorAll('.snap-chk:checked')).map(function(c){return c.dataset.id;});
+  if(!checked.length){toast('&#9888;&#65039; Select at least one section');return;}
+  var now=new Date(),key=now.getFullYear()+'-'+(now.getMonth()+1)+'-'+checked.sort().join('-');
+  var label=now.toLocaleString('default',{month:'long',year:'numeric'})+' ('+checked.map(function(id){var s=ALL_SECS.find(function(x){return x.id===id;});return s?s.label:id;}).join(', ')+')';
+  db.history=db.history.filter(function(h){return h.key!==key;});
+  var snap={key:key,label:label,date:now.toISOString(),sections:checked,vesselId:VESSEL_ID,
+    items:db.items.filter(function(i){return checked.includes(i.section);}).map(function(i){return{id:i.id,name:i.name,qty:i.qty,unit:i.unit,section:i.section,location:i.location,partNo:i.partNo||'',smallOil:!!i.smallOil};})};
+  db.history.unshift(snap);
+  if(_fs)cloudSave('history',snap.key,snap);else renderHistory();
+  closeM('snapModal'); toast('&#128248; Snapshot saved &#8212; '+label);
+}
+function renderHistory(){
+  var el=document.getElementById('histContent'); if(!el)return;
+  if(!db.history.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">&#128202;</div><div style="font-size:13px;">No snapshots yet.<br/>Settings &#8594; Snapshot.</div></div>';return;}
+  el.innerHTML=db.history.map(function(snap,idx){
+    var prev=db.history[idx+1];
+    var rows=snap.items.map(function(si){
+      var pi=prev?prev.items.find(function(p){return p.id===si.id;}):null;
+      var diff='&#8212;';if(pi!=null){var delta=parseFloat(si.qty)-parseFloat(pi.qty);diff='<span class="'+(delta>=0?'ch-pos':'ch-neg')+'">'+(delta>=0?'+':'')+fQ(delta)+'</span>';}
+      var sec=ALL_SECS.find(function(s){return s.id===si.section;})||{icon:'&#128230;'};
+      return '<tr><td>'+si.name+(si.partNo?'<div style="font-size:9px;color:var(--accent);">'+si.partNo+'</div>':'')+'</td><td>'+sec.icon+'</td><td>'+(si.location||'&#8212;')+'</td><td>'+fQ(si.qty)+' '+si.unit+'</td><td>'+diff+'</td></tr>';
+    }).join('');
+    return '<div class="hist-month"><div class="hist-hdr">&#128197; '+snap.label+'</div>'
+      +'<table class="htbl"><thead><tr><th>Item</th><th>Sec</th><th>Location</th><th>Qty</th><th>Change</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+  }).join('');
+}
+
+// ============================================================
+// CUSTOM SECTIONS
+// ============================================================
+function openAddSecModal(){['newSecName','newSecIcon','newSecPin'].forEach(function(f){document.getElementById(f).value='';});document.getElementById('addSecModal').classList.add('open');}
+function saveCustomSec(){
+  var name=document.getElementById('newSecName').value.trim();
+  var icon=document.getElementById('newSecIcon').value.trim()||'&#128230;';
+  var pin=document.getElementById('newSecPin').value.trim();
+  if(!name){toast('&#9888;&#65039; Enter section name');return;}
+  if(!db.settings.pin){toast('&#9888;&#65039; Set a PIN first in Settings');return;}
+  if(pin!==db.settings.pin){toast('&#10060; Incorrect PIN');return;}
+  var id='custom_'+Date.now();
+  var sec={id:id,label:name,icon:icon,color:'#6a1b9a',isCustom:true};
+  db.customSections=db.customSections||[];db.customSections.push(sec);
+  if(_fs)_fs.collection(base()+'/sections').doc(id).set(sec).catch(function(){});
+  rebuildSecs();renderSidebar();closeM('addSecModal');toast('&#10003;&#65039; Section "'+name+'" added!');
+}
+
+// ============================================================
+// EXPORT
+// ============================================================
+function openExportModal(){updateExpUI();document.getElementById('exportModal').classList.add('open');}
+function updateExpUI(){
+  var fmt=document.getElementById('exportFmt').value;
+  var show=['pdf-simple','pdf-monthly','excel-eco'].includes(fmt);
+  document.getElementById('expSecWrap').style.display=show?'block':'none';
+  if(!show)return;
+  document.getElementById('expChecks').innerHTML=ALL_SECS.map(function(s){
+    return '<label class="echk-row"><input type="checkbox" class="exp-chk" data-id="'+s.id+'" checked/>'
+      +'<span style="font-size:18px;">'+s.icon+'</span>'
+      +'<div><div style="font-size:13px;font-weight:500;color:var(--text);">'+s.label+'</div>'
+      +'<div style="font-size:11px;color:var(--text2);">'+db.items.filter(function(i){return i.section===s.id;}).length+' items</div></div></label>';
+  }).join('');
+}
+function runExport(){
+  var fmt=document.getElementById('exportFmt').value;
+  var checked=[].slice.call(document.querySelectorAll('.exp-chk:checked')).map(function(c){return c.dataset.id;});
+  if(['pdf-simple','pdf-monthly','excel-eco'].includes(fmt)&&!checked.length){toast('&#9888;&#65039; Select at least one section');return;}
+  closeM('exportModal');
+  if(fmt==='excel-eco')exportEcoExcel(checked);
+  else exportPDF(fmt.replace('pdf-',''),checked);
+}
+
+function exportEcoExcel(sections){
+  var wb=XLSX.utils.book_new();
+  var msdsItems=db.items.filter(function(i){return sections.includes(i.section)&&i.msdsUrl;});
+  var noMsds=db.items.filter(function(i){return sections.includes(i.section)&&!i.msdsUrl;});
+  function mkWS(data){var ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:40},{wch:30},{wch:40}];return ws;}
+  XLSX.utils.book_append_sheet(wb,mkWS([['Product','Location','Supplier / Maker / Remarks']].concat(msdsItems.map(function(i){return[i.name,i.location||'',i.supplier||''];}))),'Eco-Online with SPS');
+  XLSX.utils.book_append_sheet(wb,mkWS([['Product','Location','Supplier / Maker / Remarks']].concat(noMsds.map(function(i){return[i.name,i.location||'',i.supplier||''];}))),'Without SPS - MSDS Only');
+  sections.forEach(function(sid){
+    var sec=ALL_SECS.find(function(s){return s.id===sid;});if(!sec)return;
+    var items=db.items.filter(function(i){return i.section===sid;});if(!items.length)return;
+    var data=[['Product','Part No.','Location','Supplier','Quantity','Unit','Min Stock','Remarks']].concat(items.map(function(i){return[i.name,i.partNo||'',i.location||'',i.supplier||'',i.qty,i.unit,i.min,i.remarks||''];}));
+    var ws=XLSX.utils.aoa_to_sheet(data);ws['!cols']=[{wch:35},{wch:15},{wch:25},{wch:30},{wch:10},{wch:8},{wch:10},{wch:25}];
+    XLSX.utils.book_append_sheet(wb,ws,sec.label.substring(0,31));
+  });
+  var v=(db.settings.vessel||'vessel').replace(/\s+/g,'_'),dt=new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb,'MarineStock_EcoOnline_'+v+'_'+dt+'.xlsx');
+  toast('&#128202; Excel exported!');
+}
+
+function exportPDF(mode,sections){
+  var jsPDF=window.jspdf.jsPDF;
+  var doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
+  var margin=14,vessel=db.settings.vessel||'Unknown Vessel',prepBy=db.settings.prepBy||'',now=new Date();
+  var ds=now.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'});
+  function hdr(title){
+    doc.setFillColor(26,115,232);doc.rect(0,0,210,30,'F');
+    doc.setTextColor(255,255,255);doc.setFontSize(16);doc.setFont('helvetica','bold');doc.text('MARINESTOCK v5',14,12);
+    doc.setFontSize(8);doc.setFont('helvetica','normal');doc.text('ONBOARD INVENTORY MANAGEMENT \u2014 '+VESSEL_ID,14,18);
+    doc.text('Vessel: '+vessel,14,24);doc.text('Date: '+ds,100,24);
+    if(prepBy)doc.text('Prepared by: '+prepBy,14,28.5);
+    doc.setTextColor(30,30,30);doc.setFontSize(12);doc.setFont('helvetica','bold');doc.text(title,14,40);
+    return 46;
+  }
+  function footer(){
+    var n=doc.internal.getNumberOfPages();
+    for(var i=1;i<=n;i++){doc.setPage(i);doc.setFontSize(7);doc.setTextColor(150,150,150);doc.text('MarineStock v5 \u2014 '+vessel+' \u2014 '+ds+' \u2014 Page '+i+'/'+n,14,290);}
+  }
+  if(mode==='simple'||mode==='monthly'){
+    var title=mode==='simple'?'INVENTORY LIST':'MONTHLY REPORT \u2014 '+now.toLocaleString('default',{month:'long',year:'numeric'}).toUpperCase();
+    var y=hdr(title);
+    sections.forEach(function(sid){
+      var sec=ALL_SECS.find(function(s){return s.id===sid;});if(!sec)return;
+      var items=db.items.filter(function(i){return i.section===sid;});if(!items.length)return;
+      if(y>250){doc.addPage();y=20;}
+      doc.setFontSize(9);doc.setFont('helvetica','bold');doc.setTextColor(100,100,100);
+      doc.text(sec.label+' \u2014 '+items.length+' items',margin,y);y+=4;doc.setTextColor(30,30,30);
+      doc.autoTable({startY:y,head:[['Item','Part No.','Location','Supplier','Qty','Unit','Min','Status']],
+        body:items.map(function(i){var isLow=parseFloat(i.qty)<=parseFloat(i.min)&&parseFloat(i.min)>0;return[i.name,i.partNo||'-',i.location||'\u2014',i.supplier||'\u2014',fQ(i.qty),i.unit,fQ(i.min),isLow?'\u26a0 LOW':'OK'];}),
+        styles:{fontSize:7.5,cellPadding:2.5},headStyles:{fillColor:[26,115,232],textColor:255},margin:{left:margin,right:margin},
+        didParseCell:function(d){if(d.section==='body'&&d.column.index===7&&(d.cell.raw||'').includes('LOW')){d.cell.styles.textColor=[211,47,47];d.cell.styles.fontStyle='bold';}}
+      });y=doc.lastAutoTable.finalY+7;
+    });
+    var soItems=sections.includes('lube')?db.items.filter(function(i){return i.section==='lube'&&i.smallOil;}):[];
+    if(soItems.length){if(y>250){doc.addPage();y=20;}doc.setFontSize(10);doc.setFont('helvetica','bold');doc.setTextColor(0,137,123);doc.text('SMALL OILS SUMMARY (Engine Room Logbook)',margin,y);y+=4;doc.setTextColor(30,30,30);
+      doc.autoTable({startY:y,head:[['Item','Location','Qty (L)']],body:soItems.map(function(i){return[i.name,i.location||'\u2014',fQ(i.qty)];}),
+        styles:{fontSize:8.5,cellPadding:3},headStyles:{fillColor:[0,137,123],textColor:255},
+        foot:[[{content:'TOTAL',colSpan:2,styles:{fontStyle:'bold'}},fQ(soItems.reduce(function(s,i){return s+parseFloat(i.qty);},0))+' L']],
+        footStyles:{fillColor:[0,80,75],textColor:255,fontStyle:'bold'},margin:{left:margin,right:margin}});y=doc.lastAutoTable.finalY+7;}
+    if(mode==='monthly'){if(y>245){doc.addPage();y=20;}y+=8;doc.setFontSize(9);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);
+      doc.text('Prepared by:',margin,y);doc.text('Verified by:',110,y);y+=12;doc.line(margin,y,90,y);doc.line(110,y,190,y);y+=5;
+      doc.text(prepBy||'______________________',margin,y);doc.text('______________________',110,y);}
+    footer();doc.save('inventory_'+mode+'_'+now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+'.pdf');
+  }else if(mode==='comparison'){
+    var y=hdr('MONTH-TO-MONTH COMPARISON');
+    if(db.history.length<2){doc.setFontSize(10);doc.text('Need at least 2 snapshots.',margin,y);}
+    else{var curr=db.history[0],prev=db.history[1];doc.setFontSize(9);doc.setTextColor(60,60,60);doc.text('Comparing: '+curr.label+' vs '+prev.label,margin,y);y+=8;
+      var rows=curr.items.map(function(ci){var pi=prev.items.find(function(p){return p.id===ci.id;});var delta=pi?parseFloat(ci.qty)-parseFloat(pi.qty):null;var change=delta!==null?(delta>=0?'+'+fQ(delta):fQ(delta)):'NEW';return[ci.name,ci.partNo||'-',(ci.section||'').toUpperCase(),ci.location||'\u2014',pi?fQ(pi.qty):'\u2014',fQ(ci.qty),ci.unit,change];});
+      prev.items.forEach(function(pi){if(!curr.items.find(function(c){return c.id===pi.id;}))rows.push([pi.name,pi.partNo||'-',(pi.section||'').toUpperCase(),pi.location||'\u2014',fQ(pi.qty),'\u2014',pi.unit,'REMOVED']);});
+      doc.autoTable({startY:y,head:[['Item','PN','Section','Location',prev.label,curr.label,'Unit','Change']],body:rows,styles:{fontSize:7,cellPadding:2.5},headStyles:{fillColor:[26,115,232],textColor:255},margin:{left:margin,right:margin},
+        didParseCell:function(d){if(d.section==='body'&&d.column.index===7){var v=d.cell.raw||'';if(v.startsWith('-'))d.cell.styles.textColor=[211,47,47];else if(v.startsWith('+'))d.cell.styles.textColor=[46,125,50];else if(v==='NEW')d.cell.styles.textColor=[0,137,123];}}});}
+    footer();doc.save('comparison_'+new Date().getFullYear()+String(new Date().getMonth()+1).padStart(2,'0')+'.pdf');
+  }else if(mode==='txlog'){
+    var y=hdr('TRANSACTION LOG');
+    if(!db.transactions.length){doc.setFontSize(10);doc.text('No transactions yet.',margin,y);}
+    else{doc.autoTable({startY:y,head:[['Date','Item','Sec','Type','Qty','Unit','Before','After','Remarks','Crew']],
+      body:db.transactions.map(function(t){var d=new Date(t.date),tds=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});var crew=t.crewName?t.crewName+(t.crewRank?' ('+t.crewRank+')':''):'-';return[tds,t.itemName,(t.itemSection||'').toUpperCase(),t.txType==='add'?'RECV':'USED',(t.txType==='add'?'+':'-')+fQ(t.qty),t.unit,fQ(t.before),fQ(t.after),t.remarks,crew];}),
+      styles:{fontSize:6.5,cellPadding:2},headStyles:{fillColor:[26,115,232],textColor:255},margin:{left:margin,right:margin},
+      didParseCell:function(d){if(d.section==='body'&&d.column.index===3){if(d.cell.raw==='RECV')d.cell.styles.textColor=[46,125,50];else d.cell.styles.textColor=[211,47,47];}}});}
+    footer();doc.save('txlog_'+new Date().getFullYear()+String(new Date().getMonth()+1).padStart(2,'0')+'.pdf');
+  }
+  toast('&#128196; PDF exported!');
+}
+
+// ============================================================
+// CLOUD SETUP
+// ============================================================
+function openCloudSetup(){
+  var saved=localStorage.getItem('marinestock_fb_config');
+  if(saved)try{document.getElementById('configInput').value=saved;}catch(e){}
+  document.getElementById('cloudModal').classList.add('open');
+}
+function applyFBConfig(){
+  var raw=document.getElementById('configInput').value.trim();if(!raw){toast('&#9888;&#65039; Paste your Firebase config');return;}
+  var cfg;
+  try{var match=raw.match(/\{[\s\S]*\}/);var clean=match?match[0]:raw;
+    try{cfg=JSON.parse(clean);}catch(e){var j=clean.replace(/\/\/.*$/gm,'').replace(/,\s*\}/g,'}').replace(/([{,]\s*)(\w+)\s*:/g,'$1"$2":');cfg=JSON.parse(j);}
+  }catch(e){toast('&#9888;&#65039; Invalid config format');console.error(e);return;}
+  if(!cfg.apiKey||!cfg.projectId){toast('&#9888;&#65039; Missing apiKey or projectId');return;}
+  localStorage.setItem('marinestock_fb_config',JSON.stringify(cfg));
+  closeM('cloudModal');
+  toast('&#9729;&#65039; Connecting...');
+  // Reset Firebase state and reinitialize
+  _ready = false; _fs = null; _st = null;
+  _unsubs.forEach(function(u){try{u();}catch(e){}});
+  _unsubs = [];
+  // Delete existing Firebase app and reinitialize with new config
+  try {
+    firebase.app().delete().then(function(){
+      initFirebase();
+    }).catch(function(){
+      initFirebase();
+    });
+  } catch(e) {
+    initFirebase();
+  }
+}
+
+// ============================================================
+// DISCLAIMER
+// ============================================================
+function acceptDisc(){localStorage.setItem('ms_disc_v5_'+VESSEL_ID,'1');closeM('discModal');}
+function showDisc(){document.getElementById('discModal').classList.add('open');}
+
+// ============================================================
+// JSON BACKUP
+// ============================================================
+function exportJSON(){
+  var b=new Blob([JSON.stringify(db,null,2)],{type:'application/json'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download='marinestock_v5_backup_'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  toast('&#128190; Backup exported!');
+}
+function importJSON(e){
+  var file=e.target.files[0];if(!file)return;
+  var r=new FileReader();
+  r.onload=function(ev){
+    try{
+      var p=JSON.parse(ev.target.result);
+      if(!confirm('Import data? Existing cloud items may be overwritten.'))return;
+      var items=p.items||[];
+      items.forEach(function(i){if(!i.section&&i.type)i.section=i.type;if(!i.section)i.section='lube';});
+      if(_fs){
+        var batch=_fs.batch();
+        items.forEach(function(item){batch.set(_fs.collection(base()+'/items').doc(item.id),item);});
+        batch.commit().then(function(){toast('&#10003;&#65039; Imported '+items.length+' items!');}).catch(function(e){console.error(e);});
+      }
+      if(p.settings){db.settings=Object.assign({},db.settings,p.settings);saveSettings();}
+    }catch(err){toast('&#9888;&#65039; Could not read file');console.error(err);}
+  };
+  r.readAsText(file);e.target.value='';
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function fQ(n){n=parseFloat(n)||0;return n%1===0?n:n.toFixed(1);}
+function closeM(id){document.getElementById(id).classList.remove('open');}
+function toast(msg){var el=document.getElementById('toast');el.innerHTML=msg;el.classList.add('show');setTimeout(function(){el.classList.remove('show');},2800);}
+
+['itemModal','txModal','exportModal','cloudModal','snapModal','addSecModal','bulkModal'].forEach(function(id){
+  var el=document.getElementById(id);if(el)el.addEventListener('click',function(e){if(e.target===this)closeM(id);});
+});
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load',function(){
+  var ls=localStorage.getItem('ms_v5_settings_'+VESSEL_ID);
+  if(ls)try{db.settings=Object.assign({},db.settings,JSON.parse(ls));}catch(e){}
+  var savedTheme=localStorage.getItem('ms_v5_theme_'+VESSEL_ID)||'light';
+  setTheme(savedTheme);
+  applySettings();rebuildSecs();renderSidebar();renderHome();
+  renderTxLog();renderHistory();updateSmallOils();buildTxFilter();
+  if(!localStorage.getItem('ms_disc_v5_'+VESSEL_ID))document.getElementById('discModal').classList.add('open');
+  var saved=localStorage.getItem('marinestock_fb_config');
+  if(saved)try{document.getElementById('configInput').value=saved;}catch(e){}
+  if(!isOnline){document.getElementById('offBanner').classList.add('show');updateSyncStatus('offline');}
+  // Check if we have a valid config before initializing Firebase
+  var hasCfg = false;
+  var savedCfg = localStorage.getItem('marinestock_fb_config');
+  if(savedCfg){try{var tc=JSON.parse(savedCfg);hasCfg=!!(tc&&tc.apiKey);}catch(e){}}
+  if(!hasCfg&&FIREBASE_CONFIG&&FIREBASE_CONFIG.apiKey){hasCfg=true;}
+  if(hasCfg){
+    initFirebase();
+  } else {
+    updateSyncStatus('not-configured');
+    console.log('No Firebase config found');
+  }
+  // Wait for Firebase to be ready before checking activation
+  var actCheckAttempts = 0;
+  var actCheckInterval = setInterval(function(){
+    actCheckAttempts++;
+    if(_ready){
+      clearInterval(actCheckInterval);
+      console.log('Firebase ready after', actCheckAttempts * 500, 'ms');
+      checkActivation();
+    } else if(actCheckAttempts >= 20){
+      // 10 seconds - show activation screen regardless
+      clearInterval(actCheckInterval);
+      console.log('Firebase timeout - proceeding');
+      checkActivation();
+    }
+  }, 500);
+  // Update device last access every 5 minutes
+  setInterval(updateDeviceLastAccess, 5*60*1000);
+});
+
+// ============================================================
+// PHASE 2 — DEVICE ACTIVATION SYSTEM
+// ============================================================
+
+function checkActivation(){
+  var actScreen = document.getElementById('actScreen');
+  // Check if device is already activated
+  deviceId = localStorage.getItem('ms_v5_device_'+VESSEL_ID);
+  deviceName = localStorage.getItem('ms_v5_dname_'+VESSEL_ID);
+  console.log('checkActivation - deviceId:', deviceId, 'Firebase ready:', _ready);
+  if(deviceId && deviceName){
+    // Device was activated before — verify with Firebase if online
+    actScreen.style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    updateGreeting();
+    if(_fs && isOnline){
+      _fs.collection(base()+'/devices').doc(deviceId).get()
+        .then(function(doc){
+          if(doc.exists && doc.data().status==='active'){
+            // Still active — all good, updateGreeting already called above
+          } else if(doc.exists && doc.data().status==='revoked'){
+            // Revoked — kick out
+            localStorage.removeItem('ms_v5_device_'+VESSEL_ID);
+            localStorage.removeItem('ms_v5_dname_'+VESSEL_ID);
+            localStorage.removeItem('ms_v5_rpin_'+VESSEL_ID);
+            deviceId=null;deviceName=null;
+            document.getElementById('app').style.display='none';
+            showActScreen();
+            toast('&#128274; Your device access has been revoked. Contact admin.');
+          }
+        }).catch(function(){
+          // Offline — allow access with existing activation
+          updateGreeting();
+        });
+    } else {
+      updateGreeting();
+    }
+  } else {
+    // Not activated
+    document.getElementById('app').style.display = 'none';
+    showActScreen();
+  }
+}
+
+function updateGreeting(){
+  // Re-render home if currently showing it
+  if(curSec==='home') renderHome();
+}
+
+function showActScreen(){
+  var actScreen = document.getElementById('actScreen');
+  actScreen.style.display = 'flex';
+  actScreen.style.flexDirection = 'column';
+  document.getElementById('actVesselLbl').textContent = VESSEL_NAME;
+  showActNotActivated();
+}
+
+
+function showActNotActivated(){
+  document.getElementById('actNotActivated').style.display='block';
+  document.getElementById('actEnterCode').style.display='none';
+  document.getElementById('actChat').style.display='none';
+  document.getElementById('actRecovery').style.display='none';
+  document.getElementById('actActivating').style.display='none';
+}
+function showActEnterCode(){
+  document.getElementById('actNotActivated').style.display='none';
+  document.getElementById('actEnterCode').style.display='block';
+  document.getElementById('actChat').style.display='none';
+  document.getElementById('actRecovery').style.display='none';
+  document.getElementById('actActivating').style.display='none';
+}
+function showActChat(){
+  document.getElementById('actNotActivated').style.display='none';
+  document.getElementById('actEnterCode').style.display='none';
+  document.getElementById('actChat').style.display='block';
+  document.getElementById('actRecovery').style.display='none';
+  document.getElementById('actActivating').style.display='none';
+}
+function showActRecovery(){
+  document.getElementById('actNotActivated').style.display='none';
+  document.getElementById('actEnterCode').style.display='none';
+  document.getElementById('actChat').style.display='none';
+  document.getElementById('actRecovery').style.display='block';
+  document.getElementById('actActivating').style.display='none';
+  rPinBuf=''; updRPinDots();
+}
+
+async function activateDevice(){
+  var dName = document.getElementById('actDeviceName').value.trim();
+  var code = document.getElementById('actCode').value.trim().toUpperCase();
+  if(!dName){toast('&#9888;&#65039; Enter your name or rank');return;}
+  if(!code){toast('&#9888;&#65039; Enter your access code');return;}
+  if(!_fs){toast('&#9888;&#65039; No internet connection. You need internet to activate.');return;}
+  // Show activating
+  document.getElementById('actNotActivated').style.display='none';
+  document.getElementById('actEnterCode').style.display='none';
+  document.getElementById('actActivating').style.display='block';
+  try{
+    // Check code in Firebase
+    var codeDoc = await _fs.collection(base()+'/codes').doc(code).get();
+    if(!codeDoc.exists){showActEnterCode();toast('&#10060; Invalid access code');return;}
+    var codeData = codeDoc.data();
+    if(codeData.status!=='unused'){showActEnterCode();toast('&#10060; This code has already been used');return;}
+    // Generate device ID and recovery PIN
+    var dId = 'DEV-'+VESSEL_ID+'-'+Date.now()+'-'+Math.random().toString(36).substr(2,4).toUpperCase();
+    var rPin = String(Math.floor(1000+Math.random()*9000));
+    // Mark code as used
+    await _fs.collection(base()+'/codes').doc(code).set({
+      status:'used',deviceId:dId,deviceName:dName,activatedAt:new Date().toISOString(),vesselId:VESSEL_ID
+    });
+    // Register device
+    await _fs.collection(base()+'/devices').doc(dId).set({
+      deviceId:dId,deviceName:dName,vesselId:VESSEL_ID,
+      status:'active',activatedAt:new Date().toISOString(),
+      lastAccess:new Date().toISOString(),code:code,
+      recoveryPinHash:btoa(rPin)
+    });
+    // Save to localStorage
+    localStorage.setItem('ms_v5_device_'+VESSEL_ID,dId);
+    localStorage.setItem('ms_v5_dname_'+VESSEL_ID,dName);
+    localStorage.setItem('ms_v5_rpin_'+VESSEL_ID,btoa(rPin));
+    // Show app
+    deviceId=dId; deviceName=dName;
+    document.getElementById('actScreen').style.display='none';
+    document.getElementById('app').style.display='flex';
+    // Show recovery PIN modal
+    document.getElementById('recoveryPinDisplay').textContent=rPin;
+    document.getElementById('recoveryPinModal').classList.add('open');
+    updateGreeting();
+    toast('&#10003;&#65039; Device activated! Welcome, '+dName+'!');
+  }catch(e){
+    console.error(e);showActEnterCode();
+    toast('&#9888;&#65039; Activation failed. Check your connection and try again.');
+  }
+}
+
+function confirmRecoveryPinSaved(){
+  closeM('recoveryPinModal');
+}
+
+// Send message to admin BEFORE activation
+async function sendPreActMsg(){
+  var name = document.getElementById('actChatName').value.trim();
+  var msg = document.getElementById('actChatMsg').value.trim();
+  if(!name){toast('&#9888;&#65039; Enter your name');return;}
+  if(!msg){toast('&#9888;&#65039; Enter your message');return;}
+  if(!_fs){toast('&#9888;&#65039; No internet connection');return;}
+  try{
+    var msgDoc = {
+      id:Date.now().toString(),
+      text:'[ACTIVATION REQUEST] '+name+': '+msg,
+      sender:'crew',senderName:name,
+      vesselId:VESSEL_ID,vesselName:VESSEL_NAME,
+      deviceId:'NOT_ACTIVATED',deviceName:name,
+      date:new Date().toISOString(),read:false
+    };
+    await _fs.collection(base()+'/chat').doc(msgDoc.id).set(msgDoc);
+    document.getElementById('actChatMsg').value='';
+    toast('&#10003;&#65039; Message sent! Admin will contact you shortly.');
+    showActNotActivated();
+  }catch(e){console.error(e);toast('&#9888;&#65039; Failed to send message');}
+}
+
+// Recovery PIN system
+function rPinK(k){
+  if(rPinBuf.length>=4)return; rPinBuf+=k; updRPinDots();
+  if(rPinBuf.length===4)setTimeout(function(){
+    var stored=localStorage.getItem('ms_v5_rpin_'+VESSEL_ID);
+    var dId=localStorage.getItem('ms_v5_device_'+VESSEL_ID);
+    var dName=localStorage.getItem('ms_v5_dname_'+VESSEL_ID);
+    if(stored && atob(stored)===rPinBuf && dId && dName){
+      deviceId=dId; deviceName=dName;
+      document.getElementById('actScreen').style.display='none';
+      document.getElementById('app').style.display='flex';
+      updateGreeting();
+      toast('&#10003;&#65039; Access restored! Welcome back, '+dName+'!');
+    } else {
+      [0,1,2,3].forEach(function(i){document.getElementById('rpd'+i).classList.add('error');});
+      setTimeout(function(){rPinBuf='';updRPinDots();[0,1,2,3].forEach(function(i){document.getElementById('rpd'+i).classList.remove('error');});},700);
+      toast('&#10060; Incorrect Recovery PIN');
+    }
+  },100);
+}
+function rPinBk(){if(rPinBuf.length>0){rPinBuf=rPinBuf.slice(0,-1);updRPinDots();}}
+function updRPinDots(){[0,1,2,3].forEach(function(i){document.getElementById('rpd'+i).classList.toggle('filled',i<rPinBuf.length);});}
+
+// Update device last access
+function updateDeviceLastAccess(){
+  if(deviceId&&_fs){
+    _fs.collection(base()+'/devices').doc(deviceId)
+      .update({lastAccess:new Date().toISOString()}).catch(function(){});
+  }
+}
+
+// ============================================================
+// PHASE 2 — SUPPORT CHAT
+// ============================================================
+
+function renderChat(){
+  var el=document.getElementById('chatMsgs'); if(!el)return;
+  var msgs=db.chatMessages||[];
+  if(!msgs.length){
+    el.innerHTML='<div style="text-align:center;padding:30px 20px;color:var(--text2);font-size:12px;">No messages yet.<br/>Send a message to the Master Admin.</div>';
+    return;
+  }
+  el.innerHTML=msgs.map(function(m){
+    var d=new Date(m.date),ds=d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+    var cls=m.sender==='crew'?'crew':m.sender==='system'?'system':'admin';
+    var name=m.sender==='admin'?'&#128272; Admin':m.deviceName||m.senderName||'Crew';
+    return '<div style="display:flex;flex-direction:column;">'
+      +'<div class="chat-msg '+cls+'">'+m.text
+      +'<div class="chat-msg-meta">'+name+' &#183; '+ds+'</div></div></div>';
+  }).join('');
+  el.scrollTop=el.scrollHeight;
+}
+
+async function sendChat(){
+  if(!deviceId){toast('&#9888;&#65039; Device not activated');return;}
+  if(!isOnline){toast('&#9888;&#65039; No internet connection');return;}
+  var inp=document.getElementById('chatInp');
+  var text=inp.value.trim(); if(!text)return;
+  if(!_fs){toast('&#9888;&#65039; No connection');return;}
+  try{
+    var msg={
+      id:Date.now().toString(),text:text,
+      sender:'crew',senderName:deviceName,
+      vesselId:VESSEL_ID,vesselName:db.settings.vessel||VESSEL_NAME,
+      deviceId:deviceId,deviceName:deviceName,
+      date:new Date().toISOString(),read:false
+    };
+    await _fs.collection(base()+'/chat').doc(msg.id).set(msg);
+    inp.value='';
+  }catch(e){console.error(e);toast('&#9888;&#65039; Failed to send message');}
+}
+
+function markChatRead(){
+  if(!_fs||!db.chatMessages)return;
+  db.chatMessages.forEach(function(m){
+    if(m.sender==='admin'&&!m.read){
+      _fs.collection(base()+'/chat').doc(m.id).update({read:true}).catch(function(){});
+    }
+  });
+}
+
+</script>
+</body>
+</html>
