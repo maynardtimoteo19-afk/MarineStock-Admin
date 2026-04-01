@@ -1,0 +1,816 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>MarineStock Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+:root{
+  --bg:#0a1628;--bg2:#0f2040;--bg3:#162d52;
+  --text:#d8e4f0;--text2:#8aa8c8;--text3:#5a7a9a;
+  --accent:#4a9eff;--accent2:#2a7ee8;
+  --teal:#00c2b8;--danger:#e84040;--safe:#30c070;--warn:#e8a020;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+  --shadow:0 1px 4px rgba(0,0,0,0.3);--shadow2:0 4px 16px rgba(0,0,0,0.5);
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:"Barlow",sans-serif;}
+/* LOGIN SCREEN */
+#loginScreen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;flex-direction:column;padding:20px;}
+.login-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;max-width:400px;width:100%;padding:32px 28px;text-align:center;box-shadow:var(--shadow2);}
+.login-logo{font-family:"Barlow Condensed",sans-serif;font-size:32px;font-weight:800;color:var(--accent);letter-spacing:3px;margin-bottom:4px;}
+.login-logo span{color:var(--teal);}
+.login-sub{font-size:12px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+.login-badge{background:rgba(232,160,32,0.15);color:var(--warn);border:1px solid rgba(232,160,32,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:1px;display:inline-block;margin-bottom:24px;}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:12px;background:#fff;color:#333;border:none;border-radius:8px;padding:13px 20px;width:100%;cursor:pointer;font-size:14px;font-weight:600;font-family:"Barlow",sans-serif;transition:all .2s;box-shadow:0 2px 8px rgba(0,0,0,0.3);}
+.google-btn:hover{box-shadow:0 4px 16px rgba(0,0,0,0.4);transform:translateY(-1px);}
+.google-btn img{width:20px;height:20px;}
+.login-note{font-size:11px;color:var(--text3);margin-top:14px;line-height:1.5;}
+/* MAIN LAYOUT */
+#adminApp{display:none;min-height:100vh;}
+.top-bar{background:var(--bg2);border-bottom:1px solid var(--border);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.top-logo{font-family:"Barlow Condensed",sans-serif;font-size:20px;font-weight:800;color:var(--accent);letter-spacing:2px;}
+.top-logo span{color:var(--teal);}
+.top-logo .badge{font-size:10px;color:var(--warn);background:rgba(232,160,32,0.15);border:1px solid rgba(232,160,32,0.3);border-radius:10px;padding:2px 8px;margin-left:8px;font-weight:700;letter-spacing:1px;}
+.top-right{display:flex;align-items:center;gap:12px;}
+.user-pill{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 4px;}
+.user-avatar{width:28px;height:28px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;}
+.user-name{font-size:12px;color:var(--text);font-weight:600;}
+.logout-btn{background:rgba(232,64,64,0.1);border:1px solid rgba(232,64,64,0.2);color:var(--danger);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:"Barlow",sans-serif;}
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);background:var(--bg2);padding:0 20px;}
+.tab{padding:12px 18px;font-family:"Barlow Condensed",sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
+/* CONTENT */
+.content{padding:20px;max-width:1200px;margin:0 auto;}
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:14px;}
+.card-title{font-family:"Barlow Condensed",sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;}
+/* VESSEL CARDS */
+.vessel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;margin-bottom:20px;}
+.vessel-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);cursor:pointer;transition:all .2s;position:relative;overflow:hidden;}
+.vessel-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent);}
+.vessel-card:hover{box-shadow:var(--shadow2);border-color:var(--border2);}
+.vessel-card.selected{border-color:var(--accent);background:rgba(74,158,255,0.05);}
+.vessel-name{font-family:"Barlow Condensed",sans-serif;font-size:18px;font-weight:800;color:var(--text);margin-bottom:8px;}
+.vessel-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+.vstat{text-align:center;background:var(--bg3);border-radius:6px;padding:6px;}
+.vstat-val{font-family:"Barlow Condensed",sans-serif;font-size:18px;font-weight:800;color:var(--text);}
+.vstat-lbl{font-size:9px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;}
+/* STATS ROW */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;box-shadow:var(--shadow);}
+.stat-val{font-family:"Barlow Condensed",sans-serif;font-size:32px;font-weight:800;color:var(--text);}
+.stat-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:1px solid var(--border);font-weight:700;}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:var(--bg3);}
+/* STATUS PILLS */
+.pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;display:inline-block;}
+.pill.active{background:rgba(48,192,112,0.1);color:var(--safe);}
+.pill.revoked{background:rgba(232,64,64,0.1);color:var(--danger);}
+.pill.unused{background:rgba(232,160,32,0.1);color:var(--warn);}
+.pill.used{background:rgba(74,158,255,0.1);color:var(--accent);}
+.pill.cancelled{background:rgba(90,90,90,0.1);color:var(--text2);}
+.pill.low{background:rgba(232,64,64,0.1);color:var(--danger);}
+/* CODE BADGE */
+.code-badge{font-family:monospace;font-size:13px;font-weight:700;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:4px 10px;color:var(--accent);letter-spacing:1px;}
+/* BUTTONS */
+.btn{padding:8px 14px;border-radius:8px;font-family:"Barlow Condensed",sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;border:none;transition:all .2s;text-transform:uppercase;}
+.btn-p{background:var(--accent);color:#fff;}
+.btn-p:hover{background:var(--accent2);}
+.btn-d{background:rgba(232,64,64,0.1);color:var(--danger);border:1px solid rgba(232,64,64,0.3);}
+.btn-d:hover{background:rgba(232,64,64,0.2);}
+.btn-s{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+.btn-s:hover{background:var(--border2);}
+.btn-w{background:rgba(232,160,32,0.1);color:var(--warn);border:1px solid rgba(232,160,32,0.3);}
+.btn-t{background:rgba(0,194,184,0.1);color:var(--teal);border:1px solid rgba(0,194,184,0.3);}
+.btn-sm{padding:4px 10px;font-size:11px;}
+/* CHAT */
+.chat-box{background:var(--bg3);border-radius:8px;padding:12px;max-height:300px;overflow-y:auto;margin-bottom:10px;display:flex;flex-direction:column;gap:8px;}
+.chat-msg{max-width:75%;padding:8px 12px;border-radius:10px;font-size:12px;line-height:1.5;}
+.chat-msg.crew{align-self:flex-start;background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:10px 10px 10px 2px;}
+.chat-msg.admin{align-self:flex-end;background:var(--accent);color:#fff;border-radius:10px 10px 2px 10px;}
+.chat-msg-meta{font-size:10px;opacity:0.7;margin-top:3px;}
+.chat-input-row{display:flex;gap:8px;}
+.chat-input{flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--text);font-size:13px;font-family:"Barlow",sans-serif;outline:none;}
+.chat-input:focus{border-color:var(--accent);}
+/* FORM */
+.fg{margin-bottom:12px;}
+.flbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:5px;display:block;font-weight:600;}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 13px;color:var(--text);font-size:13px;font-family:"Barlow",sans-serif;outline:none;}
+.fi:focus{border-color:var(--accent);}
+/* MODAL */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:500;display:none;align-items:center;justify-content:center;}
+.mbg.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:92%;max-width:480px;padding:22px;box-shadow:var(--shadow2);max-height:90vh;overflow-y:auto;}
+.modal-title{font-family:"Barlow Condensed",sans-serif;font-size:20px;font-weight:800;letter-spacing:1px;margin-bottom:16px;color:var(--text);}
+.macts{display:flex;gap:10px;margin-top:16px;}
+/* NOTIFICATION BADGE */
+.notif-badge{background:var(--danger);color:#fff;border-radius:50%;font-size:9px;font-weight:700;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;}
+/* EMPTY */
+.empty{text-align:center;padding:32px 20px;color:var(--text2);font-size:13px;}
+/* LOADING */
+.loading{text-align:center;padding:20px;color:var(--text2);font-size:12px;}
+/* TOAST */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12px;font-weight:600;opacity:0;transition:all .3s;z-index:999;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+/* ADD VESSEL FORM */
+.add-vessel-form{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:14px;}
+select.fi option{background:var(--bg2);}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+@media(max-width:600px){
+  .stats-grid{grid-template-columns:repeat(2,1fr);}
+  .vessel-grid{grid-template-columns:1fr;}
+  .tabs{overflow-x:auto;}
+  .tab{white-space:nowrap;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-logo">Marine<span>Stock</span></div>
+    <div class="login-sub">v5 Cloud</div>
+    <div class="login-badge">&#128272; SUPER ADMIN PANEL</div>
+    <button class="google-btn" onclick="loginWithGoogle()">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+    <div class="login-note">Only authorized administrators can access this panel.<br/>Unauthorized access attempts are logged.</div>
+  </div>
+</div>
+
+<!-- ADMIN APP -->
+<div id="adminApp">
+  <div class="top-bar">
+    <div>
+      <div class="top-logo">Marine<span>Stock</span> <span class="badge">SUPER ADMIN</span></div>
+    </div>
+    <div class="top-right">
+      <div class="user-pill">
+        <div class="user-avatar" id="userAvatar">M</div>
+        <div class="user-name" id="userName">Admin</div>
+      </div>
+      <button class="logout-btn" onclick="logout()">&#128274; Logout</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('overview')" id="tab-overview">&#127968; Overview</div>
+    <div class="tab" onclick="switchTab('vessels')" id="tab-vessels">&#128674; Vessels</div>
+    <div class="tab" onclick="switchTab('codes')" id="tab-codes">&#128273; Access Codes</div>
+    <div class="tab" onclick="switchTab('devices')" id="tab-devices">&#128241; Devices</div>
+    <div class="tab" onclick="switchTab('chat')" id="tab-chat">&#128172; Chat <span class="notif-badge" id="chatBadge" style="display:none;">0</span></div>
+  </div>
+
+  <div class="content">
+
+    <!-- OVERVIEW TAB -->
+    <div id="tab-content-overview">
+      <div style="margin-bottom:16px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text);">Fleet Overview</div>
+        <div style="font-size:12px;color:var(--text2);" id="overviewDate"></div>
+      </div>
+      <div class="stats-grid" id="fleetStats">
+        <div class="stat-card"><div class="stat-val" id="statVessels">-</div><div class="stat-lbl">Vessels</div></div>
+        <div class="stat-card"><div class="stat-val" id="statDevices">-</div><div class="stat-lbl">Active Devices</div></div>
+        <div class="stat-card"><div class="stat-val" id="statItems">-</div><div class="stat-lbl">Total Items</div></div>
+        <div class="stat-card"><div class="stat-val" id="statLow" style="color:var(--danger);">-</div><div class="stat-lbl">Low Stock</div></div>
+      </div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:10px;">Vessels</div>
+      <div class="vessel-grid" id="vesselGrid">
+        <div class="loading">&#9729;&#65039; Loading vessels...</div>
+      </div>
+    </div>
+
+    <!-- VESSELS TAB -->
+    <div id="tab-content-vessels" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text);">Vessel Management</div>
+        <button class="btn btn-p" onclick="openAddVesselModal()">&#43; Add Vessel</button>
+      </div>
+      <div id="vesselMgmtList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- ACCESS CODES TAB -->
+    <div id="tab-content-codes" style="display:none;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text);">Access Codes</div>
+        <button class="btn btn-p" onclick="openGenerateCodeModal()">&#128273; Generate Code</button>
+      </div>
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label class="flbl" style="margin:0;white-space:nowrap;">Filter by vessel:</label>
+          <select class="fi" id="codesVesselFilter" onchange="loadCodes()" style="max-width:220px;"></select>
+        </div>
+      </div>
+      <div id="codesList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- DEVICES TAB -->
+    <div id="tab-content-devices" style="display:none;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text);margin-bottom:16px;">Device Management</div>
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label class="flbl" style="margin:0;white-space:nowrap;">Filter by vessel:</label>
+          <select class="fi" id="devicesVesselFilter" onchange="loadDevices()" style="max-width:220px;"></select>
+        </div>
+      </div>
+      <div id="devicesList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- CHAT TAB -->
+    <div id="tab-content-chat" style="display:none;">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;color:var(--text);margin-bottom:16px;">Support Chat</div>
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;gap:10px;align-items:center;">
+          <label class="flbl" style="margin:0;white-space:nowrap;">Select vessel:</label>
+          <select class="fi" id="chatVesselFilter" onchange="loadChat()" style="max-width:220px;"></select>
+        </div>
+      </div>
+      <div id="chatArea"><div class="empty">Select a vessel to view chat</div></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- GENERATE CODE MODAL -->
+<div class="mbg" id="genCodeModal">
+  <div class="modal">
+    <div class="modal-title">&#128273; Generate Access Code</div>
+    <div class="fg"><label class="flbl">Select Vessel</label><select class="fi" id="genCodeVessel"></select></div>
+    <div class="fg"><label class="flbl">Note (optional)</label><input type="text" class="fi" id="genCodeNote" placeholder="e.g. For Second Engineer laptop"/></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeModal('genCodeModal')">Cancel</button>
+      <button class="btn btn-p" onclick="generateCode()">Generate Code</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD VESSEL MODAL -->
+<div class="mbg" id="addVesselModal">
+  <div class="modal">
+    <div class="modal-title">&#128674; Add New Vessel</div>
+    <div class="fg"><label class="flbl">Vessel ID</label><input type="text" class="fi" id="newVesselId" placeholder="e.g. 8607" maxlength="10"/></div>
+    <div class="fg"><label class="flbl">Vessel Name</label><input type="text" class="fi" id="newVesselName" placeholder="e.g. MV Armada 8607"/></div>
+    <div class="fg"><label class="flbl">GitHub Pages URL</label><input type="text" class="fi" id="newVesselUrl" placeholder="e.g. https://maynardtimoteo19-afk.github.io/Marine-Stock-8607/"/></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeModal('addVesselModal')">Cancel</button>
+      <button class="btn btn-p" onclick="addVessel()">Add Vessel</button>
+    </div>
+  </div>
+</div>
+
+<!-- VESSEL DETAIL MODAL -->
+<div class="mbg" id="vesselDetailModal">
+  <div class="modal" style="max-width:600px;">
+    <div class="modal-title" id="vesselDetailTitle">Vessel Details</div>
+    <div id="vesselDetailContent"></div>
+    <div class="macts"><button class="btn btn-s" onclick="closeModal('vesselDetailModal')">Close</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// MARINESTOCK SUPER ADMIN PANEL
+// Firebase config - same as vessel apps
+// ============================================================
+var FIREBASE_CONFIG = {
+  "apiKey": "AIzaSyDzfmd1NbNYDvdM9O2AbIb-kW9eSpaqwXc",
+  "authDomain": "marinestock-c31ba.firebaseapp.com",
+  "projectId": "marinestock-c31ba",
+  "storageBucket": "marinestock-c31ba.firebasestorage.app",
+  "messagingSenderId": "744159644997",
+  "appId": "1:744159644997:web:243253eccfc9adc51dc22c"
+};
+
+// Your authorized Google email - ONLY this email can login
+var AUTHORIZED_EMAIL = "maynardtimoteo19@gmail.com";
+
+// ============================================================
+// STATE
+// ============================================================
+var _fs = null, _auth = null;
+var currentUser = null;
+var vessels = [];
+var chatUnsubs = [];
+
+// ============================================================
+// FIREBASE INIT
+// ============================================================
+window.addEventListener("load", function(){
+  document.getElementById("overviewDate").textContent =
+    new Date().toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  try {
+    var app = firebase.initializeApp(FIREBASE_CONFIG);
+    _fs = firebase.firestore();
+    _auth = firebase.auth();
+    _auth.onAuthStateChanged(function(user){
+      if(user){
+        if(user.email !== AUTHORIZED_EMAIL){
+          _auth.signOut();
+          alert("Access denied. This panel is restricted to authorized administrators only.");
+          return;
+        }
+        currentUser = user;
+        showAdminApp(user);
+      } else {
+        showLoginScreen();
+      }
+    });
+  } catch(e) {
+    console.error("Firebase init error:", e);
+    alert("Firebase connection failed. Check the config.");
+  }
+});
+
+// ============================================================
+// AUTH
+// ============================================================
+function loginWithGoogle(){
+  var provider = new firebase.auth.GoogleAuthProvider();
+  _auth.signInWithPopup(provider)
+    .then(function(result){
+      if(result.user.email !== AUTHORIZED_EMAIL){
+        _auth.signOut();
+        alert("Access denied. Only the authorized administrator can login.");
+      }
+    })
+    .catch(function(e){
+      console.error(e);
+      toast("Login failed: " + e.message);
+    });
+}
+
+function logout(){
+  if(!confirm("Are you sure you want to logout?")) return;
+  _auth.signOut();
+}
+
+function showLoginScreen(){
+  document.getElementById("loginScreen").style.display = "flex";
+  document.getElementById("adminApp").style.display = "none";
+}
+
+function showAdminApp(user){
+  document.getElementById("loginScreen").style.display = "none";
+  document.getElementById("adminApp").style.display = "block";
+  // Set user info
+  var initials = user.displayName ? user.displayName.split(" ").map(function(n){return n[0];}).join("").toUpperCase() : "A";
+  document.getElementById("userAvatar").textContent = initials;
+  document.getElementById("userName").textContent = user.displayName || user.email;
+  // Load data
+  loadVessels();
+  startChatNotifListener();
+}
+
+// ============================================================
+// VESSELS
+// ============================================================
+function loadVessels(){
+  _fs.collection("admin/config/vessels").orderBy("createdAt","asc").get()
+    .then(function(snap){
+      if(snap.empty){
+        // No vessels yet - check if default vessels exist
+        vessels = [{id:"8606",name:"MV Armada 8606",url:"",active:true},
+                   {id:"8601",name:"MV Armada 8601",url:"",active:true}];
+      } else {
+        vessels = snap.docs.map(function(d){return Object.assign({},d.data(),{id:d.id});});
+      }
+      renderVesselSelects();
+      renderOverview();
+      renderVesselMgmt();
+    })
+    .catch(function(e){
+      console.error(e);
+      // Fallback to default vessels
+      vessels = [{id:"8606",name:"MV Armada 8606",url:"",active:true}];
+      renderVesselSelects();
+      renderOverview();
+    });
+}
+
+function renderVesselSelects(){
+  var selects = ["codesVesselFilter","devicesVesselFilter","chatVesselFilter","genCodeVessel"];
+  selects.forEach(function(id){
+    var sel = document.getElementById(id);
+    if(!sel) return;
+    var allOpt = id !== "genCodeVessel" ? "<option value="all">All Vessels</option>" : "";
+    sel.innerHTML = allOpt + vessels.map(function(v){
+      return "<option value=""+v.id+"">"+v.name+"</option>";
+    }).join("");
+  });
+}
+
+function renderOverview(){
+  var grid = document.getElementById("vesselGrid");
+  if(!grid) return;
+  grid.innerHTML = "<div class="loading">&#9729;&#65039; Loading vessel data...</div>";
+  document.getElementById("statVessels").textContent = vessels.length;
+  var totalDevices = 0, totalItems = 0, totalLow = 0;
+  var promises = vessels.map(function(v){
+    return Promise.all([
+      _fs.collection("vessels/"+v.id+"/devices").where("status","==","active").get(),
+      _fs.collection("vessels/"+v.id+"/items").get(),
+      _fs.collection("vessels/"+v.id+"/chat").where("read","==",false).where("sender","==","crew").get()
+    ]).then(function(results){
+      var devices = results[0].size;
+      var items = results[1].docs.map(function(d){return d.data();});
+      var unread = results[2].size;
+      var low = items.filter(function(i){return parseFloat(i.qty)<=parseFloat(i.min)&&parseFloat(i.min)>0;}).length;
+      totalDevices += devices;
+      totalItems += items.length;
+      totalLow += low;
+      return {vessel:v,devices:devices,items:items.length,low:low,unread:unread};
+    }).catch(function(){
+      return {vessel:v,devices:0,items:0,low:0,unread:0};
+    });
+  });
+  Promise.all(promises).then(function(results){
+    document.getElementById("statDevices").textContent = totalDevices;
+    document.getElementById("statItems").textContent = totalItems;
+    document.getElementById("statLow").textContent = totalLow;
+    grid.innerHTML = results.map(function(r){
+      return "<div class="vessel-card" onclick="openVesselDetail('"+r.vessel.id+"','"+r.vessel.name+"')">"
+        +"<div class="vessel-name">"+r.vessel.name+"</div>"
+        +"<div style="font-size:10px;color:var(--text2);">Vessel ID: "+r.vessel.id+"</div>"
+        +(r.unread>0?"<div style="font-size:11px;color:var(--danger);margin-top:4px;">&#128276; "+r.unread+" unread message"+(r.unread>1?"s":"")+"</div>":"")
+        +"<div class="vessel-stats">"
+        +"<div class="vstat"><div class="vstat-val">"+r.devices+"</div><div class="vstat-lbl">Devices</div></div>"
+        +"<div class="vstat"><div class="vstat-val">"+r.items+"</div><div class="vstat-lbl">Items</div></div>"
+        +"<div class="vstat"><div class="vstat-val" style="color:"+(r.low>0?"var(--danger)":"var(--text)")+"">"+r.low+"</div><div class="vstat-lbl">Low Stock</div></div>"
+        +"</div></div>";
+    }).join("");
+  });
+}
+
+function renderVesselMgmt(){
+  var el = document.getElementById("vesselMgmtList");
+  if(!el) return;
+  el.innerHTML = "<div class="card"><table class="tbl">"
+    +"<thead><tr><th>Vessel ID</th><th>Vessel Name</th><th>URL</th><th>Status</th><th>Actions</th></tr></thead>"
+    +"<tbody>"+vessels.map(function(v){
+      return "<tr>"
+        +"<td><span class="code-badge">"+v.id+"</span></td>"
+        +"<td style="font-weight:600;">"+v.name+"</td>"
+        +"<td><a href=""+(v.url||"#")+"" target="_blank" style="color:var(--accent);font-size:12px;">"+(v.url||"Not set")+"</a></td>"
+        +"<td><span class="pill "+(v.active!==false?"active":"revoked")+"">"+(v.active!==false?"Active":"Inactive")+"</span></td>"
+        +"<td style="display:flex;gap:6px;">"
+        +"<button class="btn btn-t btn-sm" onclick="openVesselDetail('"+v.id+"','"+v.name+"')">&#128202; Details</button>"
+        +"<button class="btn btn-d btn-sm" onclick="deactivateVessel('"+v.id+"')">Deactivate</button>"
+        +"</td></tr>";
+    }).join("")+"</tbody></table></div>";
+}
+
+// ============================================================
+// VESSEL DETAIL
+// ============================================================
+function openVesselDetail(vesselId, vesselName){
+  document.getElementById("vesselDetailTitle").textContent = "&#9875; " + vesselName;
+  document.getElementById("vesselDetailContent").innerHTML = "<div class="loading">&#9729;&#65039; Loading...</div>";
+  document.getElementById("vesselDetailModal").classList.add("open");
+  Promise.all([
+    _fs.collection("vessels/"+vesselId+"/codes").orderBy("created","desc").limit(10).get(),
+    _fs.collection("vessels/"+vesselId+"/devices").orderBy("activatedAt","desc").get(),
+    _fs.collection("vessels/"+vesselId+"/items").get()
+  ]).then(function(results){
+    var codes = results[0].docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var devs = results[1].docs.map(function(d){return Object.assign({id:d.id},d.data());});
+    var items = results[2].docs.map(function(d){return d.data();});
+    var low = items.filter(function(i){return parseFloat(i.qty)<=parseFloat(i.min)&&parseFloat(i.min)>0;});
+    var html = "";
+    // Stats
+    html += "<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;">"
+      +"<div class="vstat" style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;"><div class="vstat-val">"+items.length+"</div><div class="vstat-lbl">Items</div></div>"
+      +"<div class="vstat" style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;"><div class="vstat-val" style="color:var(--danger);">"+low.length+"</div><div class="vstat-lbl">Low Stock</div></div>"
+      +"<div class="vstat" style="background:var(--bg3);border-radius:8px;padding:10px;text-align:center;"><div class="vstat-val">"+devs.filter(function(d){return d.status==="active";}).length+"</div><div class="vstat-lbl">Active Devices</div></div>"
+      +"</div>";
+    // Quick actions
+    html += "<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">"
+      +"<button class="btn btn-p btn-sm" onclick="closeModal('vesselDetailModal');openGenerateCodeModal('"+vesselId+"');">&#128273; Generate Code</button>"
+      +"<button class="btn btn-w btn-sm" onclick="resetVesselPin('"+vesselId+"')">&#128275; Reset Delete PIN</button>"
+      +"</div>";
+    // Recent devices
+    html += "<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">Devices</div>"
+      +"<div style="background:var(--bg3);border-radius:8px;overflow:hidden;margin-bottom:14px;">";
+    if(devs.length===0){
+      html += "<div class="empty">No devices registered yet</div>";
+    } else {
+      html += "<table class="tbl">"+devs.map(function(d){
+        var last = d.lastAccess ? new Date(d.lastAccess).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "Never";
+        return "<tr><td style="font-weight:600;">"+d.deviceName+"</td>"
+          +"<td><span class="pill "+(d.status||"active")+"">"+( d.status||"active")+"</span></td>"
+          +"<td style="font-size:11px;color:var(--text2);">"+last+"</td>"
+          +(d.status==="active"?"<td><button class="btn btn-d btn-sm" onclick="revokeDevice('"+vesselId+"','"+d.id+"')">Revoke</button></td>":"<td></td>")
+          +"</tr>";
+      }).join("")+"</table>";
+    }
+    html += "</div>";
+    // Recent codes
+    html += "<div style="font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;">Recent Codes</div>"
+      +"<div style="background:var(--bg3);border-radius:8px;overflow:hidden;">";
+    if(codes.length===0){
+      html += "<div class="empty">No codes generated yet</div>";
+    } else {
+      html += "<table class="tbl">"+codes.map(function(c){
+        return "<tr><td><span class="code-badge">"+c.id+"</span></td>"
+          +"<td><span class="pill "+(c.status||"unused")+"">"+( c.status||"unused")+"</span></td>"
+          +"<td style="font-size:11px;color:var(--text2);">"+(c.deviceName||c.note||"-")+"</td>"
+          +(c.status==="unused"?"<td><button class="btn btn-d btn-sm" onclick="cancelCode('"+vesselId+"','"+c.id+"')">Cancel</button></td>":"<td></td>")
+          +"</tr>";
+      }).join("")+"</table>";
+    }
+    html += "</div>";
+    document.getElementById("vesselDetailContent").innerHTML = html;
+  }).catch(function(e){
+    console.error(e);
+    document.getElementById("vesselDetailContent").innerHTML = "<div class="empty">Failed to load vessel data</div>";
+  });
+}
+
+// ============================================================
+// ACCESS CODES
+// ============================================================
+function openGenerateCodeModal(preselect){
+  document.getElementById("genCodeNote").value = "";
+  if(preselect){
+    document.getElementById("genCodeVessel").value = preselect;
+  }
+  document.getElementById("genCodeModal").classList.add("open");
+}
+
+async function generateCode(){
+  var vesselId = document.getElementById("genCodeVessel").value;
+  var note = document.getElementById("genCodeNote").value.trim();
+  if(!vesselId){toast("Select a vessel");return;}
+  var vessel = vessels.find(function(v){return v.id===vesselId;});
+  var vName = vessel ? vessel.name : vesselId;
+  var code = "ARMA-"+vesselId+"-"+Math.random().toString(36).substr(2,3).toUpperCase()+Math.random().toString(36).substr(2,3).toUpperCase();
+  try{
+    await _fs.collection("vessels/"+vesselId+"/codes").doc(code).set({
+      status:"unused", created:new Date().toISOString(),
+      vesselId:vesselId, vesselName:vName, note:note||""
+    });
+    closeModal("genCodeModal");
+    alert("Access Code Generated!
+
+Vessel: "+vName+"
+Code: "+code+(note?"
+Note: "+note:"")+"
+
+Share this code with the crew member.
+It can only be used ONCE on ONE device.");
+    loadCodes();
+    toast("Code generated for "+vName);
+  }catch(e){console.error(e);toast("Failed to generate code");}
+}
+
+function loadCodes(){
+  var filter = document.getElementById("codesVesselFilter").value;
+  var el = document.getElementById("codesList");
+  el.innerHTML = "<div class="loading">&#9729;&#65039; Loading...</div>";
+  var targets = filter==="all" ? vessels.map(function(v){return v.id;}) : [filter];
+  var promises = targets.map(function(vid){
+    return _fs.collection("vessels/"+vid+"/codes").orderBy("created","desc").get()
+      .then(function(snap){
+        return snap.docs.map(function(d){return Object.assign({id:d.id,vesselId:vid},d.data());});
+      }).catch(function(){return [];});
+  });
+  Promise.all(promises).then(function(results){
+    var allCodes = [].concat.apply([],results);
+    allCodes.sort(function(a,b){return new Date(b.created)-new Date(a.created);});
+    if(!allCodes.length){el.innerHTML="<div class="empty">No codes found</div>";return;}
+    el.innerHTML = "<div class="card"><table class="tbl">"
+      +"<thead><tr><th>Code</th><th>Vessel</th><th>Status</th><th>Note</th><th>Device Used By</th><th>Created</th><th>Actions</th></tr></thead>"
+      +"<tbody>"+allCodes.map(function(c){
+        var v = vessels.find(function(v){return v.id===c.vesselId;})||{name:c.vesselId};
+        var created = c.created ? new Date(c.created).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "-";
+        return "<tr>"
+          +"<td><span class="code-badge">"+c.id+"</span></td>"
+          +"<td style="font-size:12px;">"+v.name+"</td>"
+          +"<td><span class="pill "+(c.status||"unused")+"">"+( c.status||"unused")+"</span></td>"
+          +"<td style="font-size:12px;color:var(--text2);">"+(c.note||"-")+"</td>"
+          +"<td style="font-size:12px;color:var(--text2);">"+(c.deviceName||"-")+"</td>"
+          +"<td style="font-size:11px;color:var(--text2);">"+created+"</td>"
+          +"<td>"+(c.status==="unused"?"<button class="btn btn-d btn-sm" onclick="cancelCode('"+c.vesselId+"','"+c.id+"')">Cancel</button>":"")+"</td>"
+          +"</tr>";
+      }).join("")+"</tbody></table></div>";
+  });
+}
+
+async function cancelCode(vesselId, codeId){
+  if(!confirm("Cancel code "+codeId+"? It can no longer be used.")) return;
+  try{
+    await _fs.collection("vessels/"+vesselId+"/codes").doc(codeId).update({status:"cancelled"});
+    toast("Code cancelled");
+    loadCodes();
+  }catch(e){console.error(e);toast("Failed to cancel code");}
+}
+
+// ============================================================
+// DEVICES
+// ============================================================
+function loadDevices(){
+  var filter = document.getElementById("devicesVesselFilter").value;
+  var el = document.getElementById("devicesList");
+  el.innerHTML = "<div class="loading">&#9729;&#65039; Loading...</div>";
+  var targets = filter==="all" ? vessels.map(function(v){return v.id;}) : [filter];
+  var promises = targets.map(function(vid){
+    return _fs.collection("vessels/"+vid+"/devices").orderBy("activatedAt","desc").get()
+      .then(function(snap){
+        return snap.docs.map(function(d){return Object.assign({id:d.id,vesselId:vid},d.data());});
+      }).catch(function(){return [];});
+  });
+  Promise.all(promises).then(function(results){
+    var allDevs = [].concat.apply([],results);
+    if(!allDevs.length){el.innerHTML="<div class="empty">No devices found</div>";return;}
+    el.innerHTML = "<div class="card"><table class="tbl">"
+      +"<thead><tr><th>Device Name</th><th>Vessel</th><th>Status</th><th>Activated</th><th>Last Access</th><th>Actions</th></tr></thead>"
+      +"<tbody>"+allDevs.map(function(d){
+        var v = vessels.find(function(v){return v.id===d.vesselId;})||{name:d.vesselId};
+        var activated = d.activatedAt ? new Date(d.activatedAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "-";
+        var lastAccess = d.lastAccess ? new Date(d.lastAccess).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"})+" "+new Date(d.lastAccess).toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}) : "Never";
+        return "<tr>"
+          +"<td style="font-weight:600;">"+d.deviceName+"</td>"
+          +"<td style="font-size:12px;">"+v.name+"</td>"
+          +"<td><span class="pill "+(d.status||"active")+"">"+( d.status||"active")+"</span></td>"
+          +"<td style="font-size:11px;color:var(--text2);">"+activated+"</td>"
+          +"<td style="font-size:11px;color:var(--text2);">"+lastAccess+"</td>"
+          +"<td>"+(d.status==="active"?"<button class="btn btn-d btn-sm" onclick="revokeDevice('"+d.vesselId+"','"+d.id+"')">Revoke</button>":"<span style="font-size:11px;color:var(--text2);">Revoked</span>")+"</td>"
+          +"</tr>";
+      }).join("")+"</tbody></table></div>";
+  });
+}
+
+async function revokeDevice(vesselId, deviceId){
+  if(!confirm("Revoke this device? They will lose access immediately.")) return;
+  try{
+    await _fs.collection("vessels/"+vesselId+"/devices").doc(deviceId).update({status:"revoked"});
+    toast("Device revoked");
+    loadDevices();
+    openVesselDetail(vesselId, (vessels.find(function(v){return v.id===vesselId;})||{name:vesselId}).name);
+  }catch(e){console.error(e);toast("Failed to revoke device");}
+}
+
+// ============================================================
+// CHAT
+// ============================================================
+function startChatNotifListener(){
+  vessels.forEach(function(v){
+    var unsub = _fs.collection("vessels/"+v.id+"/chat")
+      .where("sender","==","crew").where("read","==",false)
+      .onSnapshot(function(snap){
+        updateChatBadge();
+      }, function(e){console.error(e);});
+    chatUnsubs.push(unsub);
+  });
+}
+
+function updateChatBadge(){
+  var promises = vessels.map(function(v){
+    return _fs.collection("vessels/"+v.id+"/chat")
+      .where("sender","==","crew").where("read","==",false).get()
+      .then(function(s){return s.size;}).catch(function(){return 0;});
+  });
+  Promise.all(promises).then(function(counts){
+    var total = counts.reduce(function(a,b){return a+b;},0);
+    var badge = document.getElementById("chatBadge");
+    if(badge){badge.style.display=total>0?"inline-flex":"none";badge.textContent=total;}
+  });
+}
+
+function loadChat(){
+  var vesselId = document.getElementById("chatVesselFilter").value;
+  if(vesselId==="all"){document.getElementById("chatArea").innerHTML="<div class="empty">Select a specific vessel to view chat</div>";return;}
+  var el = document.getElementById("chatArea");
+  el.innerHTML = "<div class="loading">&#9729;&#65039; Loading...</div>";
+  _fs.collection("vessels/"+vesselId+"/chat").orderBy("date","asc").get()
+    .then(function(snap){
+      var msgs = snap.docs.map(function(d){return Object.assign({id:d.id},d.data());});
+      // Mark all crew messages as read
+      snap.docs.forEach(function(d){
+        if(d.data().sender==="crew"&&!d.data().read){
+          _fs.collection("vessels/"+vesselId+"/chat").doc(d.id).update({read:true}).catch(function(){});
+        }
+      });
+      var chatHtml = msgs.length ? msgs.map(function(m){
+        var d = new Date(m.date);
+        var ds = d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+" "+d.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"});
+        var cls = m.sender==="admin"?"admin":"crew";
+        var name = m.sender==="admin"?"&#128272; Admin":(m.deviceName||m.senderName||"Crew");
+        return "<div class="chat-msg "+cls+"">"+m.text+"<div class="chat-msg-meta">"+name+" &#183; "+ds+"</div></div>";
+      }).join("") : "<div style="text-align:center;padding:20px;color:var(--text2);font-size:12px;">No messages yet</div>";
+      el.innerHTML = "<div class="chat-box" id="chatBox">"+chatHtml+"</div>"
+        +"<div class="chat-input-row">"
+        +"<input type="text" class="chat-input" id="chatReplyInp" placeholder="Reply to "+vesselId+"..." onkeydown="if(event.key==='Enter')sendChatReply('"+vesselId+"');"/>"
+        +"<button class="btn btn-p" onclick="sendChatReply('"+vesselId+"')">Send &#10148;</button>"
+        +"</div>";
+      var box = document.getElementById("chatBox");
+      if(box) box.scrollTop = box.scrollHeight;
+      updateChatBadge();
+    }).catch(function(e){console.error(e);el.innerHTML="<div class="empty">Failed to load chat</div>";});
+}
+
+async function sendChatReply(vesselId){
+  var inp = document.getElementById("chatReplyInp");
+  var text = inp.value.trim(); if(!text) return;
+  try{
+    var msg = {
+      id:Date.now().toString(), text:text, sender:"admin",
+      senderName:"Admin ("+currentUser.displayName+")",
+      vesselId:vesselId, date:new Date().toISOString(), read:false
+    };
+    await _fs.collection("vessels/"+vesselId+"/chat").doc(msg.id).set(msg);
+    inp.value = "";
+    loadChat();
+    toast("Reply sent");
+  }catch(e){console.error(e);toast("Failed to send reply");}
+}
+
+// ============================================================
+// VESSEL MANAGEMENT
+// ============================================================
+function openAddVesselModal(){
+  ["newVesselId","newVesselName","newVesselUrl"].forEach(function(f){document.getElementById(f).value="";});
+  document.getElementById("addVesselModal").classList.add("open");
+}
+
+async function addVessel(){
+  var id = document.getElementById("newVesselId").value.trim();
+  var name = document.getElementById("newVesselName").value.trim();
+  var url = document.getElementById("newVesselUrl").value.trim();
+  if(!id||!name){toast("Vessel ID and Name are required");return;}
+  try{
+    await _fs.collection("admin/config/vessels").doc(id).set({
+      id:id, name:name, url:url, active:true, createdAt:new Date().toISOString()
+    });
+    closeModal("addVesselModal");
+    toast("Vessel "+name+" added!");
+    loadVessels();
+  }catch(e){console.error(e);toast("Failed to add vessel");}
+}
+
+async function deactivateVessel(id){
+  if(!confirm("Deactivate this vessel? Crew will still have access but vessel will be marked inactive.")) return;
+  try{
+    await _fs.collection("admin/config/vessels").doc(id).update({active:false});
+    toast("Vessel deactivated");
+    loadVessels();
+  }catch(e){console.error(e);toast("Failed");}
+}
+
+async function resetVesselPin(vesselId){
+  if(!confirm("Reset the delete PIN for this vessel? Crew will need to set a new one.")) return;
+  try{
+    await _fs.collection("vessels/"+vesselId+"/settings").doc("main").update({pin:""});
+    toast("Vessel PIN reset successfully");
+    closeModal("vesselDetailModal");
+  }catch(e){console.error(e);toast("Failed to reset PIN");}
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(tab){
+  ["overview","vessels","codes","devices","chat"].forEach(function(t){
+    document.getElementById("tab-"+t).classList.toggle("active",t===tab);
+    document.getElementById("tab-content-"+t).style.display=t===tab?"block":"none";
+  });
+  if(tab==="codes") loadCodes();
+  if(tab==="devices") loadDevices();
+  if(tab==="chat"){ loadChat(); updateChatBadge(); }
+  if(tab==="vessels") renderVesselMgmt();
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function closeModal(id){document.getElementById(id).classList.remove("open");}
+function toast(msg){
+  var el=document.getElementById("toast");el.textContent=msg;
+  el.classList.add("show");setTimeout(function(){el.classList.remove("show");},2800);
+}
+
+// Close modals on background click
+["genCodeModal","addVesselModal","vesselDetailModal"].forEach(function(id){
+  var el=document.getElementById(id);
+  if(el)el.addEventListener("click",function(e){if(e.target===this)closeModal(id);});
+});
+</script>
+</body>
+</html>
