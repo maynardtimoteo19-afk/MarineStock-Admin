@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VesselBoard Display</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   THEME VARIABLES
+══════════════════════════════════════════════ */
+:root, body[data-theme="midnight"] {
+  --bg:#0a0f1e; --sur:#0d1526; --sur2:#111d35;
+  --hdr:#0d1526; --hdr-bdr:rgba(255,255,255,.07); --hdr-txt:#e2e8f0;
+  --ac:#00d4ff; --ac2:#38bdf8;
+  --txt:#e2e8f0; --muted:rgba(226,232,240,.38);
+  --ub:#ef4444; --ubg:rgba(239,68,68,.13);
+  --ib:#f59e0b; --ibg:rgba(245,158,11,.1);
+  --gb:#00d4ff; --gbg:rgba(0,212,255,.09);
+  --bday-bg:#071828; --bday-ac:#00d4ff;
+  --wgt:#111d35; --wgt-bdr:rgba(0,212,255,.12);
+  --ticker:#080d18;
+  --clk:#00d4ff; --tz:rgba(0,212,255,.65);
+  --dot:#00d4ff;
+  --top-bar:none;
+  --btm-bar:linear-gradient(to right,transparent,rgba(0,212,255,.3),transparent);
+  --lock-bg:#0a0f1e; --lock-ac:#00d4ff;
+}
+body[data-theme="cheerful"] {
+  --bg:#f0fafe; --sur:#ffffff; --sur2:#e8f8ff;
+  --hdr:#2a3560; --hdr-bdr:rgba(255,255,255,.1); --hdr-txt:#ffffff;
+  --ac:#e8834a; --ac2:#2a3560;
+  --txt:#1a2340; --muted:rgba(26,35,64,.42);
+  --ub:#d9432a; --ubg:rgba(217,67,42,.1);
+  --ib:#c07a10; --ibg:rgba(192,122,16,.1);
+  --gb:#2a8a9a; --gbg:rgba(42,138,154,.1);
+  --bday-bg:#fff7e0; --bday-ac:#e8834a;
+  --wgt:#e8f8ff; --wgt-bdr:rgba(232,131,74,.2);
+  --ticker:#ddf4fa;
+  --clk:#F9E69F; --tz:rgba(249,230,159,.8);
+  --dot:#e8834a;
+  --top-bar:none;
+  --btm-bar:linear-gradient(to right,transparent,rgba(232,131,74,.35),transparent);
+  --lock-bg:#f0fafe; --lock-ac:#e8834a;
+}
+body[data-theme="ocean"] {
+  --bg:#06111e; --sur:#0a1828; --sur2:#0d2240;
+  --hdr:#0e1c3d; --hdr-bdr:rgba(15,214,85,.28); --hdr-txt:#ffffff;
+  --ac:#0fd655; --ac2:#00b8cc;
+  --txt:#f0fff4; --muted:rgba(240,255,244,.38);
+  --ub:#e84444; --ubg:rgba(232,68,68,.12);
+  --ib:#f0a030; --ibg:rgba(240,160,48,.1);
+  --gb:#0fd655; --gbg:rgba(15,214,85,.1);
+  --bday-bg:#081a0e; --bday-ac:#0fd655;
+  --wgt:#0d2240; --wgt-bdr:rgba(15,214,85,.18);
+  --ticker:#040e17;
+  --clk:#0fd655; --tz:rgba(15,214,85,.65);
+  --dot:#0fd655;
+  --top-bar:linear-gradient(to right,#0e1c3d,#0fd655 30%,#0fd655 70%,#0e1c3d);
+  --btm-bar:linear-gradient(to right,transparent,rgba(15,214,85,.35),transparent);
+  --lock-bg:#06111e; --lock-ac:#0fd655;
+}
+
+/* ══════════════════════════════════════════════
+   BASE
+══════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:var(--bg);color:var(--txt);
+  font-family:'Barlow',sans-serif;
+  transition:background .5s,color .5s;
+}
+
+/* ══════════════════════════════════════════════
+   LOCK SCREEN
+══════════════════════════════════════════════ */
+#lockScreen{
+  position:fixed;inset:0;background:var(--lock-bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;gap:16px;padding:20px;
+  transition:background .5s;
+}
+.lock-icon{font-size:52px;opacity:.25;margin-bottom:8px;}
+.lock-brand{
+  font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;
+  letter-spacing:4px;color:var(--lock-ac);
+}
+.lock-sub{font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+.lock-input{
+  background:var(--sur);border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;padding:14px 20px;
+  font-size:20px;font-family:'JetBrains Mono',monospace;font-weight:700;
+  text-align:center;letter-spacing:6px;text-transform:uppercase;color:var(--txt);
+  outline:none;width:300px;max-width:90vw;
+  transition:border-color .2s;
+}
+.lock-input:focus{border-color:var(--lock-ac);}
+.lock-input::placeholder{font-size:13px;letter-spacing:2px;opacity:.3;}
+.lock-btn{
+  background:var(--lock-ac);color:var(--bg);border:none;border-radius:10px;
+  padding:13px 40px;font-family:'Barlow Condensed',sans-serif;
+  font-size:15px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;transition:opacity .2s;width:300px;max-width:90vw;
+}
+.lock-btn:hover{opacity:.85;}
+.lock-err{
+  font-size:12px;color:#ef4444;
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);
+  border-radius:6px;padding:7px 14px;display:none;
+  font-weight:600;letter-spacing:.5px;
+}
+.lock-hint{font-size:10px;color:var(--muted);text-align:center;line-height:1.7;max-width:280px;}
+
+/* ══════════════════════════════════════════════
+   OFFLINE SCREEN
+══════════════════════════════════════════════ */
+#offlineScreen{
+  position:fixed;inset:0;background:var(--bg);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:99;gap:12px;
+}
+.offline-icon{font-size:64px;opacity:.15;}
+.offline-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+.offline-sub{font-size:13px;color:var(--muted);text-align:center;max-width:320px;line-height:1.7;}
+.offline-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);opacity:.5;margin-top:8px;}
+
+/* ══════════════════════════════════════════════
+   LIVE BOARD
+══════════════════════════════════════════════ */
+#liveBoard{
+  display:none;flex-direction:column;
+  width:100vw;height:100vh;overflow:hidden;
+}
+
+/* ── ACCENT BAR (Ocean Infinity top bar) ── */
+.top-accent{height:3px;background:var(--top-bar);flex-shrink:0;}
+
+/* ── HEADER ── */
+.brd-header{
+  background:var(--hdr);border-bottom:1px solid var(--hdr-bdr);
+  padding:0 24px;height:60px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;
+}
+.hdr-left{}
+.vessel-name{
+  font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;
+  letter-spacing:4px;text-transform:uppercase;color:var(--hdr-txt);
+  line-height:1;
+}
+.vessel-tag{font-size:9px;color:var(--ac);letter-spacing:3px;text-transform:uppercase;margin-top:3px;opacity:.8;}
+.hdr-right{text-align:right;}
+.hdr-clock{
+  font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;
+  color:var(--clk);letter-spacing:2px;line-height:1;
+}
+.hdr-tz{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--tz);margin-top:3px;letter-spacing:1px;}
+.hdr-date{font-size:10px;color:var(--hdr-txt);margin-top:2px;opacity:.55;letter-spacing:.5px;}
+
+/* ── BODY ── */
+.brd-body{
+  flex:1;display:grid;grid-template-columns:1fr 260px;
+  gap:12px;padding:12px 18px 8px;overflow:hidden;min-height:0;
+}
+
+/* ── LEFT COLUMN ── */
+.brd-left{display:flex;flex-direction:column;gap:10px;overflow:hidden;min-height:0;}
+
+/* Carousel */
+.section-lbl{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;color:var(--muted);
+  margin-bottom:6px;
+}
+.carousel-wrap{flex:0 0 auto;}
+.car-stage{
+  border-radius:10px;overflow:hidden;position:relative;height:180px;
+  background:var(--sur2);
+}
+.car-slide{
+  position:absolute;inset:0;opacity:0;transition:opacity .8s ease;
+  display:flex;align-items:flex-end;border-radius:10px;overflow:hidden;
+}
+.car-slide.active{opacity:1;}
+.car-slide img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0;}
+.car-overlay{
+  position:relative;z-index:1;width:100%;padding:10px 14px;
+  background:linear-gradient(to top,rgba(0,0,0,.75),transparent);
+}
+.car-caption{font-size:14px;font-weight:700;color:#fff;letter-spacing:.5px;}
+.car-sender{font-size:10px;color:rgba(255,255,255,.6);margin-top:2px;}
+.car-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(0,0,0,.35);border:none;color:#fff;border-radius:6px;
+  padding:5px 10px;cursor:pointer;font-size:16px;z-index:2;transition:background .2s;
+}
+.car-nav:hover{background:rgba(0,0,0,.55);}
+.car-prev{left:8px;}.car-next{right:8px;}
+.car-dots{display:flex;gap:5px;justify-content:center;margin-top:6px;}
+.car-dot{
+  width:7px;height:7px;border-radius:50%;background:var(--dot);
+  opacity:.25;transition:all .3s;cursor:pointer;
+}
+.car-dot.active{opacity:1;transform:scale(1.3);}
+
+/* Announcements */
+.ann-scroll{flex:1;overflow-y:auto;overflow-x:hidden;}
+.ann-scroll::-webkit-scrollbar{width:3px;}
+.ann-scroll::-webkit-scrollbar-thumb{background:var(--hdr-bdr);border-radius:2px;}
+.ann-card{
+  border-radius:8px;padding:10px 13px;margin-bottom:7px;
+  border-left:3px solid var(--gb);
+  background:var(--gbg);
+  animation:slideIn .4s ease;
+}
+.ann-card:last-child{margin-bottom:0;}
+.ann-card.urgent{border-left-color:var(--ub);background:var(--ubg);}
+.ann-card.important{border-left-color:var(--ib);background:var(--ibg);}
+.ann-card.general{border-left-color:var(--gb);background:var(--gbg);}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:none;}}
+.ann-priority{
+  font-size:8px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:5px;
+}
+.ann-card.urgent .ann-priority{color:var(--ub);}
+.ann-card.important .ann-priority{color:var(--ib);}
+.ann-card.general .ann-priority{color:var(--gb);}
+.ann-body{font-size:13px;line-height:1.5;color:var(--txt);}
+.ann-time{font-size:9px;color:var(--muted);margin-top:5px;font-family:'JetBrains Mono',monospace;}
+
+/* Urgent pulse */
+@keyframes urgentPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.0);}50%{box-shadow:0 0 0 3px rgba(239,68,68,.25);}}
+.ann-card.urgent{animation:slideIn .4s ease,urgentPulse 3s ease 1s infinite;}
+
+/* ── RIGHT SIDEBAR ── */
+.brd-sidebar{display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;min-height:0;}
+.brd-sidebar::-webkit-scrollbar{width:3px;}
+.brd-sidebar::-webkit-scrollbar-thumb{background:var(--hdr-bdr);border-radius:2px;}
+
+.widget{
+  background:var(--wgt);border:1px solid var(--wgt-bdr);
+  border-radius:8px;padding:9px 11px;flex-shrink:0;
+}
+.wgt-title{
+  font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;
+}
+.wgt-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;padding:3px 0;
+  border-bottom:1px solid rgba(128,128,128,.1);
+}
+.wgt-row:last-child{border-bottom:none;}
+.wgt-val{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);}
+.wgt-row.now-watch{color:var(--ac);font-weight:700;}
+.wgt-row.now-watch .wgt-val{color:var(--ac);opacity:1;}
+
+/* Birthday widget */
+.bday-widget{
+  background:var(--bday-bg);border:1px solid var(--bday-ac);
+  border-radius:8px;padding:10px 11px;flex-shrink:0;
+  position:relative;overflow:hidden;
+}
+.bday-widget::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.02),transparent);
+  pointer-events:none;
+}
+.bday-lbl{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--bday-ac);margin-bottom:5px;}
+.bday-name{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--txt);letter-spacing:1px;line-height:1;}
+.bday-rank{font-size:10px;color:var(--muted);margin-top:3px;}
+.bday-badge{
+  display:inline-block;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  background:rgba(255,255,255,.08);color:var(--bday-ac);
+  border-radius:99px;padding:2px 8px;margin-top:5px;
+}
+.bday-cake{
+  position:absolute;top:8px;right:10px;font-size:18px;
+  animation:bdaySpin 1s ease infinite alternate;
+}
+@keyframes bdaySpin{from{transform:rotate(-15deg) scale(.9);}to{transform:rotate(15deg) scale(1.1);}}
+
+/* Next port */
+.port-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--ac);letter-spacing:2px;}
+.port-eta{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:3px;}
+
+/* QR widget */
+.qr-widget{background:var(--wgt);border:1px solid var(--wgt-bdr);border-radius:8px;padding:9px 11px;flex-shrink:0;text-align:center;}
+.qr-inner{background:white;border-radius:6px;padding:6px;display:inline-block;}
+.qr-label{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ac);margin-top:6px;}
+.qr-sub{font-size:7px;color:var(--muted);margin-top:2px;}
+
+/* ── ACCENT / TICKER ── */
+.btm-accent{height:2px;background:var(--btm-bar);flex-shrink:0;}
+.ticker{
+  height:34px;background:var(--ticker);border-top:1px solid rgba(128,128,128,.08);
+  overflow:hidden;white-space:nowrap;display:flex;align-items:center;flex-shrink:0;
+}
+.ticker-track{
+  display:inline-block;padding-left:100%;
+  animation:ticker 40s linear infinite;
+  font-size:11px;font-family:'JetBrains Mono',monospace;
+  color:var(--muted);letter-spacing:.5px;
+}
+@keyframes ticker{from{transform:translateX(0);}to{transform:translateX(-100%);}}
+.ticker-dot{color:var(--ac);margin:0 14px;}
+
+/* ── NO CONTENT STATES ── */
+.no-ann{
+  text-align:center;padding:16px 10px;color:var(--muted);
+  font-size:11px;letter-spacing:1px;text-transform:uppercase;
+  font-family:'Barlow Condensed',sans-serif;
+}
+</style>
+</head>
+<body data-theme="midnight">
+
+<!-- ══════════════════════════════════════════════
+     LOCK SCREEN
+══════════════════════════════════════════════ -->
+<div id="lockScreen">
+  <div class="lock-icon">📺</div>
+  <div class="lock-brand">VESSELBOARD</div>
+  <div class="lock-sub">Messroom Display</div>
+
+  <input type="text" class="lock-input" id="codeInput"
+    placeholder="ENTER ACCESS CODE"
+    maxlength="16"
+    oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9-]/g,'')"
+    onkeydown="if(event.key==='Enter')activateBoard()"/>
+
+  <div class="lock-err" id="lockErr">Invalid or revoked access code. Contact your Vessel Admin.</div>
+  <button class="lock-btn" onclick="activateBoard()" id="lockBtn">Activate Display →</button>
+  <div class="lock-hint">
+    Enter the access code generated by your Vessel Admin.<br/>
+    This screen only needs to be activated once.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     OFFLINE SCREEN
+══════════════════════════════════════════════ -->
+<div id="offlineScreen">
+  <div class="offline-icon">📡</div>
+  <div class="offline-title">Board Offline</div>
+  <div class="offline-sub">This display has been deactivated. Contact your Vessel Admin to get a new access code.</div>
+  <div class="offline-code" id="offlineCode"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     LIVE BOARD
+══════════════════════════════════════════════ -->
+<div id="liveBoard">
+
+  <div class="top-accent"></div>
+
+  <!-- HEADER -->
+  <div class="brd-header">
+    <div class="hdr-left">
+      <div class="vessel-name" id="brdVesselName">MV ARMADA 8606</div>
+      <div class="vessel-tag" id="brdVesselTag">OSM / OCEAN INFINITY · LIVE DISPLAY</div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-clock" id="brdClock">--:--:--</div>
+      <div class="hdr-tz" id="brdTZ">UTC+8 · UTC --:--</div>
+      <div class="hdr-date" id="brdDate">—</div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="brd-body">
+
+    <!-- LEFT COLUMN -->
+    <div class="brd-left">
+
+      <!-- Photo Carousel -->
+      <div class="carousel-wrap">
+        <div class="section-lbl">📷 Photo Highlights</div>
+        <div class="car-stage" id="carStage">
+          <!-- Slides injected by JS -->
+        </div>
+        <div class="car-dots" id="carDots"></div>
+      </div>
+
+      <!-- Announcements -->
+      <div class="ann-scroll">
+        <div class="section-lbl">📢 Announcements</div>
+        <div id="annList">
+          <div class="no-ann">No announcements</div>
+        </div>
+      </div>
+
+    </div><!-- /brd-left -->
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="brd-sidebar" id="brdSidebar">
+      <!-- Content injected by JS based on settings -->
+    </div>
+
+  </div><!-- /brd-body -->
+
+  <div class="btm-accent"></div>
+
+  <!-- TICKER -->
+  <div class="ticker">
+    <span class="ticker-track" id="tickerTrack">
+      ⚓ SAFETY FIRST — Always wear your PPE in designated areas
+      <span class="ticker-dot">·</span>
+      Daily safety inspection at 0800
+      <span class="ticker-dot">·</span>
+      Smoking permitted in designated areas only
+      <span class="ticker-dot">·</span>
+      Emergencies: contact the Bridge on VHF Ch.16
+      <span class="ticker-dot">·</span>
+      Bunkering operations — no open flames on deck
+      <span class="ticker-dot">·</span>
+    </span>
+  </div>
+
+</div><!-- /liveBoard -->
+
+<!-- QR source (hidden, used to capture data URL) -->
+<div id="qrSource" style="position:absolute;left:-9999px;top:-9999px;"></div>
+
+<!-- ══════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════ -->
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDzfmd1NbNYDvdM9O2AbIb-kW9e5paqwXc",
+  authDomain: "marinestock-c31ba.firebaseapp.com",
+  projectId: "marinestock-c31ba",
+  storageBucket: "marinestock-c31ba.firebasestorage.app",
+  messagingSenderId: "744159644997",
+  appId: "1:744159644997:web:243253eccfc9adc51dc22c"
+};
+
+// ============================================================
+// STATE
+// ============================================================
+var _fs = null;
+var board = { vesselId: null, vesselName: null, code: null };
+var brdSettings = {
+  theme: 'midnight', timezone: 'UTC+8', tzOffset: 8,
+  showQR: false, watchVisible: true, mealVisible: true,
+  carouselSpeed: 5, watchSchedule: [], mealTimes: []
+};
+var brdData = { announcements: [], photos: [], birthdays: [] };
+var carIdx = 0, carTimer = null, clockTimer = null;
+var unsubs = [];
+var qrDataURL = '';
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', function() {
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _fs = firebase.firestore();
+  } catch(e) { console.error('Firebase init:', e); return; }
+  checkSavedBoard();
+});
+
+function checkSavedBoard() {
+  try {
+    var saved = localStorage.getItem('vb_board');
+    if (!saved) return;
+    var s = JSON.parse(saved);
+    if (!s.vesselId || !s.code) return;
+    board.vesselId = s.vesselId;
+    board.vesselName = s.vesselName || ('Vessel ' + s.vesselId);
+    board.code = s.code;
+    // Verify still active
+    _fs.collection('vboard/' + s.vesselId + '/boards').doc(s.code).get()
+      .then(function(doc) {
+        if (doc.exists && doc.data().active !== false) {
+          startBoard();
+        } else {
+          localStorage.removeItem('vb_board');
+        }
+      }).catch(function() {});
+  } catch(e) {}
+}
+
+// ============================================================
+// ACTIVATION
+// ============================================================
+async function activateBoard() {
+  var code = document.getElementById('codeInput').value.trim().toUpperCase();
+  var err = document.getElementById('lockErr');
+  err.style.display = 'none';
+  if (!code) { err.textContent = 'Enter the access code.'; err.style.display = 'block'; return; }
+
+  var btn = document.getElementById('lockBtn');
+  btn.disabled = true; btn.textContent = 'Verifying...';
+
+  // Extract vessel ID from code: BRD-{vesselId}-XXXX
+  var parts = code.split('-');
+  if (parts.length < 3 || parts[0] !== 'BRD') {
+    err.textContent = 'Invalid code format. Expected BRD-XXXX-XXXX';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Activate Display →';
+    return;
+  }
+  var vesselId = parts[1];
+
+  try {
+    var doc = await _fs.collection('vboard/' + vesselId + '/boards').doc(code).get();
+    if (!doc.exists) throw new Error('Board not found');
+    if (doc.data().active === false) {
+      err.textContent = 'This board code has been revoked. Contact your Vessel Admin.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Activate Display →';
+      return;
+    }
+    // Get vessel name
+    var vdoc = await _fs.collection('admin/config/vessels').doc(vesselId).get();
+    var vname = vdoc.exists ? vdoc.data().name : 'MV Vessel ' + vesselId;
+    board.vesselId = vesselId;
+    board.vesselName = vname;
+    board.code = code;
+    // Save to localStorage
+    localStorage.setItem('vb_board', JSON.stringify({ vesselId: vesselId, vesselName: vname, code: code }));
+    startBoard();
+  } catch(e) {
+    console.error(e);
+    err.textContent = 'Could not verify code. Check connection and try again.';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Activate Display →';
+  }
+}
+
+// ============================================================
+// START BOARD
+// ============================================================
+function startBoard() {
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('liveBoard').style.display = 'flex';
+  document.getElementById('brdVesselName').textContent = board.vesselName.toUpperCase();
+  startClock();
+  startListeners();
+  generateQR();
+}
+
+// ============================================================
+// REAL-TIME LISTENERS
+// ============================================================
+function startListeners() {
+  var vid = board.vesselId;
+  var code = board.code;
+
+  // 1. Board document — watch for revocation
+  var u1 = _fs.collection('vboard/' + vid + '/boards').doc(code)
+    .onSnapshot(function(doc) {
+      if (!doc.exists || doc.data().active === false) {
+        showOffline();
+      }
+    }, function(e) { console.error('Board listener:', e); });
+  unsubs.push(u1);
+
+  // 2. Settings — live theme/widget updates
+  var u2 = _fs.collection('vboard/' + vid + '/settings').doc('main')
+    .onSnapshot(function(doc) {
+      if (doc.exists) applySettings(doc.data());
+    }, function(e) { console.error('Settings listener:', e); });
+  unsubs.push(u2);
+
+  // 3. Announcements — live
+  var u3 = _fs.collection('vboard/' + vid + '/announcements')
+    .where('active', '==', true)
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(function(snap) {
+      var now = new Date();
+      brdData.announcements = snap.docs
+        .map(function(d) { return Object.assign({id:d.id}, d.data()); })
+        .filter(function(a) {
+          if (!a.expiresAt) return true;
+          return new Date(a.expiresAt) > now;
+        });
+      // Sort: urgent → important → general
+      brdData.announcements.sort(function(a, b) {
+        var order = { urgent:0, important:1, general:2 };
+        return (order[a.priority]||2) - (order[b.priority]||2);
+      });
+      renderAnnouncements();
+    }, function(e) { console.error('Ann listener:', e); });
+  unsubs.push(u3);
+
+  // 4. Approved photos — live
+  var u4 = _fs.collection('vboard/' + vid + '/submissions')
+    .where('status', '==', 'approved')
+    .orderBy('reviewedAt', 'desc')
+    .limit(15)
+    .onSnapshot(function(snap) {
+      brdData.photos = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      buildCarousel();
+    }, function(e) { console.error('Photos listener:', e); });
+  unsubs.push(u4);
+
+  // 5. Birthdays — load once, refresh daily
+  loadBirthdays();
+}
+
+// ============================================================
+// APPLY SETTINGS (called every time settings change)
+// ============================================================
+function applySettings(data) {
+  var themeChanged = data.theme && data.theme !== brdSettings.theme;
+  var tzChanged = data.timezone !== brdSettings.timezone;
+
+  brdSettings = Object.assign(brdSettings, data);
+
+  // Parse timezone offset
+  var m = (data.timezone||'UTC+8').match(/UTC([+-]?\d+\.?\d*)/);
+  brdSettings.tzOffset = m ? parseFloat(m[1]) : 8;
+
+  // Apply theme
+  if (themeChanged || !document.body.getAttribute('data-theme')) {
+    document.body.setAttribute('data-theme', brdSettings.theme || 'midnight');
+  }
+
+  // Update clock timezone
+  if (tzChanged) {
+    var tzEl = document.getElementById('brdTZ');
+    if (tzEl) tzEl.textContent = (brdSettings.timezone || 'UTC+8') + ' · UTC --:--';
+  }
+
+  // Rebuild sidebar (watch/meal/QR toggles may have changed)
+  renderSidebar();
+
+  // Update carousel speed
+  if (carTimer) {
+    clearInterval(carTimer);
+    var spd = (parseInt(brdSettings.carouselSpeed) || 5) * 1000;
+    carTimer = setInterval(function() { advanceCarousel(1); }, spd);
+  }
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function startClock() {
+  function tick() {
+    var now = new Date();
+    var utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    var local = new Date(utcMs + (brdSettings.tzOffset * 3600000));
+
+    var h = String(local.getHours()).padStart(2,'0');
+    var mn = String(local.getMinutes()).padStart(2,'0');
+    var s = String(local.getSeconds()).padStart(2,'0');
+    var clkEl = document.getElementById('brdClock');
+    if (clkEl) clkEl.textContent = h + ':' + mn + ':' + s;
+
+    var dateEl = document.getElementById('brdDate');
+    if (dateEl) dateEl.textContent = local.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+    // UTC time
+    var tzEl = document.getElementById('brdTZ');
+    if (tzEl) {
+      var uh = String(now.getUTCHours()).padStart(2,'0');
+      var um = String(now.getUTCMinutes()).padStart(2,'0');
+      tzEl.textContent = (brdSettings.timezone||'UTC+8') + ' · UTC ' + uh + ':' + um;
+    }
+
+    // Highlight current watch
+    highlightCurrentWatch(h + ':' + mn);
+  }
+  tick();
+  if (clockTimer) clearInterval(clockTimer);
+  clockTimer = setInterval(tick, 1000);
+}
+
+// ============================================================
+// CAROUSEL
+// ============================================================
+var defaultSlides = [
+  { bg: 'linear-gradient(140deg,#0c3868,#1d6fa4)', caption: 'Welcome Aboard', sub: 'MV Armada 8606', emoji: '⚓' },
+  { bg: 'linear-gradient(140deg,#3b1c00,#c0531a)', caption: 'Life at Sea', sub: 'Share your moments via QR', emoji: '🌅' },
+  { bg: 'linear-gradient(140deg,#1a1540,#4a3d8a)', caption: 'Engine Room', sub: 'Powered by the best crew', emoji: '⚙️' },
+  { bg: 'linear-gradient(140deg,#064e3b,#059669)', caption: 'Safety First', sub: 'Wear your PPE always', emoji: '🦺' },
+];
+
+function buildCarousel() {
+  var stage = document.getElementById('carStage');
+  var dotsEl = document.getElementById('carDots');
+  stage.innerHTML = '';
+  dotsEl.innerHTML = '';
+  if (carTimer) { clearInterval(carTimer); carTimer = null; }
+
+  var slides = brdData.photos.length > 0
+    ? brdData.photos.map(function(p) {
+        return {
+          photoUrl: p.photoUrls && p.photoUrls[0] ? p.photoUrls[0] : null,
+          bg: 'linear-gradient(140deg,#0c3868,#1d6fa4)',
+          caption: p.senderName || 'Crew Photo',
+          sub: p.remarks || 'Shared by crew',
+          emoji: '📷'
+        };
+      })
+    : defaultSlides;
+
+  slides.forEach(function(s, i) {
+    var slide = document.createElement('div');
+    slide.className = 'car-slide' + (i === 0 ? ' active' : '');
+    if (s.photoUrl) {
+      slide.innerHTML = '<img src="' + s.photoUrl + '" onerror="this.style.display=\'none\'">'
+        + '<div class="car-overlay"><div class="car-caption">' + s.caption + '</div>'
+        + '<div class="car-sender">' + s.sub + '</div></div>';
+    } else {
+      slide.style.background = s.bg;
+      slide.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:48px;opacity:.2;">' + s.emoji + '</div>'
+        + '<div class="car-overlay"><div class="car-caption">' + s.caption + '</div>'
+        + '<div class="car-sender">' + s.sub + '</div></div>';
+    }
+    stage.appendChild(slide);
+
+    var dot = document.createElement('div');
+    dot.className = 'car-dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('data-i', i);
+    dot.onclick = function() { goSlide(parseInt(this.getAttribute('data-i'))); };
+    dotsEl.appendChild(dot);
+  });
+
+  // Add nav buttons
+  var prev = document.createElement('button');
+  prev.className = 'car-nav car-prev'; prev.innerHTML = '&#8249;';
+  prev.onclick = function() { advanceCarousel(-1); };
+  stage.appendChild(prev);
+
+  var next = document.createElement('button');
+  next.className = 'car-nav car-next'; next.innerHTML = '&#8250;';
+  next.onclick = function() { advanceCarousel(1); };
+  stage.appendChild(next);
+
+  carIdx = 0;
+  var spd = (parseInt(brdSettings.carouselSpeed) || 5) * 1000;
+  carTimer = setInterval(function() { advanceCarousel(1); }, spd);
+}
+
+function advanceCarousel(dir) {
+  var slides = document.querySelectorAll('.car-slide');
+  var dots = document.querySelectorAll('.car-dot');
+  if (!slides.length) return;
+  slides[carIdx].classList.remove('active');
+  dots[carIdx] && dots[carIdx].classList.remove('active');
+  carIdx = (carIdx + dir + slides.length) % slides.length;
+  slides[carIdx].classList.add('active');
+  dots[carIdx] && dots[carIdx].classList.add('active');
+}
+
+function goSlide(i) {
+  var slides = document.querySelectorAll('.car-slide');
+  var dots = document.querySelectorAll('.car-dot');
+  if (!slides.length) return;
+  slides[carIdx].classList.remove('active');
+  dots[carIdx] && dots[carIdx].classList.remove('active');
+  carIdx = i;
+  slides[carIdx].classList.add('active');
+  dots[carIdx] && dots[carIdx].classList.add('active');
+}
+
+// ============================================================
+// ANNOUNCEMENTS
+// ============================================================
+function renderAnnouncements() {
+  var el = document.getElementById('annList');
+  if (!brdData.announcements.length) {
+    el.innerHTML = '<div class="no-ann">No active announcements</div>';
+    return;
+  }
+  var labels = { urgent: '🚨 URGENT', important: '⚠️ IMPORTANT', general: '📋 GENERAL' };
+  var html = '';
+  brdData.announcements.forEach(function(a) {
+    var lbl = labels[a.priority] || '📋 GENERAL';
+    var timeStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})
+      + ' ' + new Date(a.createdAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+    html += '<div class="ann-card ' + (a.priority||'general') + '">'
+      + '<div class="ann-priority">' + lbl + '</div>'
+      + '<div class="ann-body">' + a.body + '</div>'
+      + (timeStr ? '<div class="ann-time">' + timeStr + (a.expiresAt ? ' · Expires: ' + new Date(a.expiresAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '') + '</div>' : '')
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+function renderSidebar() {
+  var el = document.getElementById('brdSidebar');
+  var html = '';
+
+  // Birthday widget (always first if today)
+  var todayBday = brdData.birthdays.filter(function(b) {
+    return daysUntil(b.date) === 0;
+  });
+  if (todayBday.length) {
+    todayBday.forEach(function(b) {
+      html += '<div class="bday-widget">'
+        + '<div class="bday-lbl">Happy Birthday</div>'
+        + '<div class="bday-name">' + b.name + '</div>'
+        + '<div class="bday-rank">' + (b.rank||'') + '</div>'
+        + '<div class="bday-badge">Celebrating today!</div>'
+        + '<div class="bday-cake">🎂</div>'
+        + '</div>';
+    });
+  }
+
+  // Watch Schedule
+  if (brdSettings.watchVisible && brdSettings.watchSchedule && brdSettings.watchSchedule.length) {
+    html += '<div class="widget">'
+      + '<div class="wgt-title">⏱ Watch Schedule</div>';
+    brdSettings.watchSchedule.forEach(function(w) {
+      var isNow = isCurrentWatch(w.time);
+      html += '<div class="wgt-row' + (isNow ? ' now-watch' : '') + '">'
+        + '<span>' + w.time + (isNow ? ' ▶' : '') + '</span>'
+        + '<span class="wgt-val">' + shortName(w.officer) + '</span>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Meal Times
+  if (brdSettings.mealVisible && brdSettings.mealTimes && brdSettings.mealTimes.length) {
+    html += '<div class="widget">'
+      + '<div class="wgt-title">🍽 Meal Times</div>';
+    brdSettings.mealTimes.forEach(function(m) {
+      html += '<div class="wgt-row"><span>' + m.meal + '</span>'
+        + '<span class="wgt-val">' + m.time + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  // Next port placeholder
+  html += '<div class="widget">'
+    + '<div class="wgt-title">📍 Next Port</div>'
+    + '<div class="port-name">VUNG TAU, VN</div>'
+    + '<div class="port-eta">ETA: Apr 06 · 14:00 LT</div>'
+    + '</div>';
+
+  // QR widget
+  if (brdSettings.showQR) {
+    html += '<div class="qr-widget">'
+      + '<div class="wgt-title">📷 Share Your Photos</div>'
+      + '<div class="qr-inner" id="qrContainer">'
+      + (qrDataURL
+          ? '<img src="' + qrDataURL + '" width="88" height="88" style="border-radius:4px;display:block;"/>'
+          : '<div style="width:88px;height:88px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#555;text-align:center;">Generating...</div>')
+      + '</div>'
+      + '<div class="qr-label">Scan to upload</div>'
+      + '<div class="qr-sub">vesselboard.app/upload/' + board.vesselId + '</div>'
+      + '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+// ============================================================
+// BIRTHDAYS
+// ============================================================
+function loadBirthdays() {
+  _fs.collection('vboard/' + board.vesselId + '/birthdays').get()
+    .then(function(snap) {
+      brdData.birthdays = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      renderSidebar();
+    }).catch(function(e) { console.error(e); });
+  // Refresh daily
+  setTimeout(loadBirthdays, 24 * 60 * 60 * 1000);
+}
+
+// ============================================================
+// QR CODE
+// ============================================================
+function generateQR() {
+  if (!board.vesselId) return;
+  if (typeof QRCode === 'undefined') return;
+  var url = 'https://vesselboard.app/upload/' + board.vesselId;
+  var el = document.getElementById('qrSource');
+  el.innerHTML = '';
+  try {
+    new QRCode(el, { text: url, width: 88, height: 88, colorDark: '#0e1c3d', colorLight: '#ffffff' });
+    setTimeout(function() {
+      var img = el.querySelector('img');
+      if (img) { qrDataURL = img.src; renderSidebar(); }
+      else {
+        var canvas = el.querySelector('canvas');
+        if (canvas) { qrDataURL = canvas.toDataURL(); renderSidebar(); }
+      }
+    }, 500);
+  } catch(e) { console.error('QR error:', e); }
+}
+
+// ============================================================
+// WATCH SCHEDULE HELPERS
+// ============================================================
+function isCurrentWatch(timeRange) {
+  if (!timeRange) return false;
+  try {
+    var now = new Date();
+    var utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    var local = new Date(utcMs + (brdSettings.tzOffset * 3600000));
+    var hhmm = local.getHours() * 60 + local.getMinutes();
+    var parts = timeRange.replace(/–/g, '-').split('-');
+    if (parts.length < 2) return false;
+    var startH = parseInt(parts[0]) || 0;
+    var endH = parseInt(parts[1]) || 0;
+    var startMin = startH < 100 ? startH * 60 : Math.floor(startH / 100) * 60 + (startH % 100);
+    var endMin = endH < 100 ? endH * 60 : Math.floor(endH / 100) * 60 + (endH % 100);
+    if (endMin === 0 || endMin === 1440) endMin = 1440;
+    if (endMin < startMin) {
+      return hhmm >= startMin || hhmm < endMin;
+    }
+    return hhmm >= startMin && hhmm < endMin;
+  } catch(e) { return false; }
+}
+
+function highlightCurrentWatch(hhmmStr) {
+  var rows = document.querySelectorAll('.wgt-row');
+  rows.forEach(function(row) {
+    var text = row.textContent || '';
+    // Already handled in renderSidebar - just trigger a re-render every minute
+  });
+}
+
+function shortName(name) {
+  if (!name) return '—';
+  var parts = name.trim().split(' ');
+  if (parts.length === 1) return name;
+  return parts[0] + ' ' + parts[parts.length - 1];
+}
+
+// Re-render sidebar every minute (for watch highlight and birthday check)
+setInterval(function() { renderSidebar(); }, 60000);
+
+// ============================================================
+// OFFLINE
+// ============================================================
+function showOffline() {
+  // Stop all listeners
+  unsubs.forEach(function(u) { try { u(); } catch(e) {} });
+  unsubs = [];
+  if (carTimer) clearInterval(carTimer);
+  if (clockTimer) clearInterval(clockTimer);
+  localStorage.removeItem('vb_board');
+  document.getElementById('liveBoard').style.display = 'none';
+  document.getElementById('lockScreen').style.display = 'none';
+  var os = document.getElementById('offlineScreen');
+  os.style.display = 'flex';
+  var codeEl = document.getElementById('offlineCode');
+  if (codeEl) codeEl.textContent = 'Code: ' + (board.code || '—');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function daysUntil(dateStr) {
+  if (!dateStr) return 999;
+  var parts = dateStr.split('-');
+  var today = new Date();
+  var bday = new Date(today.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]));
+  var diff = Math.round((bday - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  if (diff < 0) diff += 365;
+  return diff;
+}
+</script>
+</body>
+</html>
