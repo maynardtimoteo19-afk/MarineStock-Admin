@@ -557,7 +557,7 @@ async function activateBoard() {
     }
     // Get vessel name
     var vdoc = await _fs.collection('admin/config/vessels').doc(vesselId).get();
-    var vname = vdoc.exists ? vdoc.data().name : 'MV Vessel ' + vesselId;
+    var vname = vdoc.exists ? vdoc.data().name : 'MV ARMADA ' + vesselId;
     board.vesselId = vesselId;
     board.vesselName = vname;
     board.code = code;
