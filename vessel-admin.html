@@ -1,0 +1,2382 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VesselBoard — Vessel Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+:root{
+  --bg:#0a1628;--bg2:#0f2040;--bg3:#162d52;
+  --text:#d8e4f0;--text2:#8aa8c8;--text3:#5a7a9a;
+  --accent:#4a9eff;--accent2:#2a7ee8;
+  --teal:#00c2b8;--teal2:#009e96;
+  --danger:#e84040;--safe:#30c070;--warn:#e8a020;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.15);
+  --shadow:0 1px 4px rgba(0,0,0,0.3);--shadow2:0 4px 16px rgba(0,0,0,0.5);
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Barlow',sans-serif;}
+
+/* ── LOGIN / ACTIVATION SCREENS ── */
+.auth-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;}
+.auth-box{background:var(--bg2);border:1px solid var(--border);border-radius:16px;max-width:420px;width:100%;padding:32px 28px;box-shadow:var(--shadow2);}
+.auth-logo{font-family:'Barlow Condensed',sans-serif;font-size:30px;font-weight:800;letter-spacing:3px;margin-bottom:4px;}
+.auth-logo .v{color:var(--teal);}
+.auth-logo .b{color:var(--accent);}
+.auth-sub{font-size:11px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;}
+.auth-badge{display:inline-block;background:rgba(0,194,184,0.12);color:var(--teal);border:1px solid rgba(0,194,184,0.3);border-radius:20px;padding:4px 14px;font-size:11px;font-weight:700;letter-spacing:1px;margin-bottom:24px;}
+.fg{margin-bottom:13px;}
+.flbl{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);margin-bottom:5px;display:block;font-weight:600;}
+.fi{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px 13px;color:var(--text);font-size:13px;font-family:'Barlow',sans-serif;outline:none;transition:border-color .2s;}
+.fi:focus{border-color:var(--teal);}
+.fi::placeholder{color:var(--text3);}
+.auth-err{font-size:12px;color:var(--danger);margin-bottom:10px;display:none;background:rgba(232,64,64,0.1);border:1px solid rgba(232,64,64,0.2);border-radius:6px;padding:7px 11px;}
+.auth-note{font-size:11px;color:var(--text3);margin-top:14px;line-height:1.6;text-align:center;}
+.auth-note a{color:var(--teal);text-decoration:none;}
+.code-input{text-align:center;letter-spacing:6px;font-family:monospace;font-size:18px;font-weight:700;text-transform:uppercase;}
+.back-link{font-size:12px;color:var(--text2);cursor:pointer;display:inline-flex;align-items:center;gap:5px;margin-bottom:18px;transition:color .2s;}
+.back-link:hover{color:var(--text);}
+
+/* ── BUTTONS ── */
+.btn{padding:8px 14px;border-radius:8px;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;cursor:pointer;border:none;transition:all .2s;text-transform:uppercase;}
+.btn-p{background:var(--teal);color:#fff;}
+.btn-p:hover{background:var(--teal2);}
+.btn-d{background:rgba(232,64,64,0.1);color:var(--danger);border:1px solid rgba(232,64,64,0.25);}
+.btn-d:hover{background:rgba(232,64,64,0.2);}
+.btn-s{background:var(--bg3);color:var(--text);border:1px solid var(--border);}
+.btn-s:hover{background:var(--border2);}
+.btn-a{background:rgba(74,158,255,0.1);color:var(--accent);border:1px solid rgba(74,158,255,0.25);}
+.btn-a:hover{background:rgba(74,158,255,0.2);}
+.btn-w{background:rgba(232,160,32,0.1);color:var(--warn);border:1px solid rgba(232,160,32,0.25);}
+.btn-full{width:100%;justify-content:center;padding:12px;}
+.btn-sm{padding:4px 10px;font-size:11px;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ── APP SHELL ── */
+#vaApp{display:none;min-height:100vh;flex-direction:column;}
+.va-topbar{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:var(--shadow);}
+.va-logo{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;letter-spacing:2px;}
+.va-logo .v{color:var(--teal);}
+.va-logo .b{color:var(--accent);}
+.va-vessel-chip{font-size:11px;font-weight:700;color:var(--teal);background:rgba(0,194,184,0.1);border:1px solid rgba(0,194,184,0.25);border-radius:10px;padding:3px 10px;margin-left:8px;letter-spacing:1px;}
+.va-user-pill{display:flex;align-items:center;gap:8px;background:var(--bg3);border:1px solid var(--border);border-radius:20px;padding:4px 12px 4px 4px;}
+.va-avatar{width:28px;height:28px;border-radius:50%;background:var(--teal);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--bg);font-family:'Barlow Condensed',sans-serif;}
+.va-username{font-size:12px;color:var(--text);font-weight:600;}
+.logout-btn{background:rgba(232,64,64,0.08);border:1px solid rgba(232,64,64,0.2);color:var(--danger);border-radius:6px;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Barlow',sans-serif;transition:all .2s;}
+.logout-btn:hover{background:rgba(232,64,64,0.18);}
+
+/* ── MAIN TABS ── */
+.va-tabs{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);padding:0 20px;overflow-x:auto;gap:0;}
+.va-tab{padding:11px 17px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;transition:all .2s;text-transform:uppercase;white-space:nowrap;}
+.va-tab:hover{color:var(--text);}
+.va-tab.active{color:var(--teal);border-bottom-color:var(--teal);}
+.notif-badge{background:var(--danger);color:#fff;border-radius:50%;font-size:9px;font-weight:700;width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;margin-left:4px;vertical-align:middle;}
+
+/* ── CONTENT AREA ── */
+.va-content{padding:20px;max-width:1100px;margin:0 auto;width:100%;}
+.tab-pane{display:none;}
+.tab-pane.active{display:block;}
+
+/* ── CARDS ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:14px;}
+.card-title{font-family:'Barlow Condensed',sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;color:var(--text);margin-bottom:12px;text-transform:uppercase;}
+.section-lbl{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--text2);margin-bottom:8px;}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{text-align:left;padding:8px 12px;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);border-bottom:1px solid var(--border);font-weight:700;}
+.tbl td{padding:10px 12px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text);vertical-align:middle;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:rgba(255,255,255,0.02);}
+
+/* ── PILLS ── */
+.pill{font-size:10px;font-weight:700;border-radius:20px;padding:2px 8px;display:inline-block;}
+.pill.active,.pill.approved{background:rgba(48,192,112,0.1);color:var(--safe);}
+.pill.revoked,.pill.rejected{background:rgba(232,64,64,0.1);color:var(--danger);}
+.pill.pending{background:rgba(232,160,32,0.1);color:var(--warn);}
+.pill.general{background:rgba(74,158,255,0.1);color:var(--accent);}
+.pill.important{background:rgba(232,160,32,0.1);color:var(--warn);}
+.pill.urgent{background:rgba(232,64,64,0.1);color:var(--danger);}
+.code-badge{font-family:monospace;font-size:12px;font-weight:700;background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:3px 9px;color:var(--teal);letter-spacing:1px;}
+
+/* ── ANNOUNCEMENT CARDS ── */
+.ann-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--border);}
+.ann-card.urgent{border-left-color:var(--danger);}
+.ann-card.important{border-left-color:var(--warn);}
+.ann-card.general{border-left-color:var(--accent);}
+.ann-body-text{font-size:13px;color:var(--text);line-height:1.55;margin-bottom:6px;}
+.ann-meta{font-size:10px;color:var(--text2);}
+
+/* ── BOARD ROWS ── */
+.board-row{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+
+/* ── SUBMISSION CARDS ── */
+.sub-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:12px 14px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start;}
+.sub-thumb{width:56px;height:56px;border-radius:7px;background:var(--bg2);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0;border:1px solid var(--border);}
+
+/* ── BIRTHDAY ROWS ── */
+.bday-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);gap:10px;flex-wrap:wrap;}
+.bday-row:last-child{border-bottom:none;}
+
+/* ── SETTINGS TOGGLES ── */
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+.setting-row:last-child{border-bottom:none;}
+.setting-info{flex:1;min-width:0;}
+.setting-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;}
+.setting-desc{font-size:11px;color:var(--text2);}
+.toggle-wrap{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+.toggle-track{width:40px;height:22px;border-radius:99px;background:var(--bg);border:1px solid var(--border2);position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.toggle-track.on{background:var(--teal);border-color:var(--teal);}
+.toggle-knob{position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:white;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.toggle-track.on .toggle-knob{transform:translateX(18px);}
+.toggle-lbl{font-size:11px;color:var(--text2);min-width:36px;}
+.sched-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.sched-row:last-child{margin-bottom:0;}
+.sched-row input{background:var(--bg3);border:1px solid var(--border);border-radius:6px;padding:6px 10px;color:var(--text);font-size:12px;font-family:'Barlow',sans-serif;outline:none;transition:border-color .2s;}
+.sched-row input:focus{border-color:var(--teal);}
+.del-sched{background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:0 4px;line-height:1;transition:color .2s;}
+.del-sched:hover{color:var(--danger);}
+.add-sched-btn{font-size:11px;color:var(--teal);background:none;border:none;cursor:pointer;padding:4px 0;font-family:'Barlow',sans-serif;display:flex;align-items:center;gap:5px;margin-top:6px;font-weight:600;}
+
+/* ── CODE DISPLAY ── */
+.gen-code-box{background:var(--bg);border:1px solid var(--teal);border-radius:8px;padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:10px;}
+.gen-code-val{font-family:monospace;font-size:18px;font-weight:700;color:var(--teal);letter-spacing:3px;}
+.gen-code-hint{font-size:10px;color:var(--text2);margin-top:2px;letter-spacing:1px;}
+
+/* ── STAT MINI ── */
+.mini-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px;}
+@media(max-width:600px){.mini-stats{grid-template-columns:repeat(2,1fr);}}
+.mini-stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:13px;text-align:center;}
+.mini-stat-val{font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;color:var(--text);}
+.mini-stat-lbl{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:2px;}
+
+/* ── MODAL ── */
+.mbg{position:fixed;inset:0;background:rgba(0,0,0,0.72);z-index:500;display:none;align-items:center;justify-content:center;}
+.mbg.open{display:flex;}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:92%;max-width:460px;padding:22px;box-shadow:var(--shadow2);max-height:90vh;overflow-y:auto;}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;letter-spacing:1px;margin-bottom:16px;color:var(--text);}
+.macts{display:flex;gap:10px;margin-top:16px;justify-content:flex-end;}
+
+/* ── TOAST ── */
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:var(--bg);padding:9px 18px;border-radius:20px;font-size:12px;font-weight:600;opacity:0;transition:all .3s;z-index:9999;pointer-events:none;white-space:nowrap;}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── THEME SELECTOR ── */
+.theme-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:6px;}
+@media(max-width:520px){.theme-grid{grid-template-columns:1fr;}}
+.theme-card{border:2px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative;}
+.theme-card:hover{border-color:var(--border2);transform:translateY(-2px);}
+.theme-card.selected{border-color:var(--teal);box-shadow:0 0 0 3px rgba(0,194,184,0.2);}
+.theme-card.selected::after{content:'✓ SELECTED';position:absolute;top:6px;right:7px;font-size:8px;font-weight:700;letter-spacing:1px;color:var(--teal);background:rgba(0,194,184,0.15);border:1px solid rgba(0,194,184,0.3);border-radius:10px;padding:2px 6px;font-family:'Barlow Condensed',sans-serif;}
+.theme-preview{height:110px;position:relative;overflow:hidden;}
+.tp-header{height:22px;display:flex;align-items:center;justify-content:space-between;padding:0 8px;}
+.tp-header-title{font-size:7px;font-weight:700;letter-spacing:1px;font-family:'Barlow Condensed',sans-serif;text-transform:uppercase;}
+.tp-clock{font-size:10px;font-weight:700;font-family:monospace;}
+.tp-body{display:grid;grid-template-columns:1fr 52px;gap:5px;padding:5px 7px;height:calc(100% - 22px);}
+.tp-main{}
+.tp-carousel{border-radius:4px;height:38px;margin-bottom:4px;}
+.tp-ann{border-radius:3px;height:8px;margin-bottom:3px;border-left:2px solid;}
+.tp-sidebar{display:flex;flex-direction:column;gap:4px;}
+.tp-widget{border-radius:4px;flex:1;}
+.theme-label{padding:8px 10px;display:flex;align-items:center;gap:7px;}
+.theme-label-name{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.theme-label-desc{font-size:10px;color:var(--text2);margin-top:1px;}
+.theme-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+
+/* ── PHOTO VIEWER ── */
+.sub-photos-row{display:flex;gap:7px;margin:10px 0 8px;flex-wrap:wrap;}
+.sub-photo-thumb{
+  width:80px;height:80px;border-radius:8px;overflow:hidden;
+  border:2px solid var(--border);cursor:pointer;position:relative;
+  flex-shrink:0;background:var(--bg3);transition:border-color .2s,transform .15s;
+}
+.sub-photo-thumb:hover{border-color:var(--teal);transform:scale(1.04);}
+.sub-photo-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.sub-photo-placeholder{
+  width:80px;height:80px;border-radius:8px;overflow:hidden;
+  border:1px solid var(--border);background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  flex-shrink:0;
+}
+.sub-photo-thumb .zoom-hint{
+  position:absolute;inset:0;background:rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;
+  opacity:0;transition:opacity .2s;font-size:18px;
+}
+.sub-photo-thumb:hover .zoom-hint{opacity:1;}
+.photo-count-chip{
+  font-size:10px;font-weight:700;color:var(--teal);background:rgba(0,194,184,.1);
+  border:1px solid rgba(0,194,184,.2);border-radius:99px;
+  padding:2px 8px;letter-spacing:.5px;align-self:center;
+}
+
+/* Fullscreen photo viewer */
+#photoViewer{
+  position:fixed;inset:0;background:rgba(0,0,0,.93);z-index:9999;
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+}
+#photoViewer.open{display:flex;}
+.pv-header{
+  position:absolute;top:0;left:0;right:0;
+  padding:14px 20px;display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(to bottom,rgba(0,0,0,.7),transparent);
+  z-index:2;
+}
+.pv-sender{font-size:14px;font-weight:700;color:#fff;letter-spacing:.3px;}
+.pv-counter{font-size:12px;color:rgba(255,255,255,.55);font-family:monospace;margin-top:2px;}
+.pv-close{
+  background:rgba(255,255,255,.12);border:none;color:#fff;
+  border-radius:50%;width:38px;height:38px;font-size:20px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:background .2s;
+  flex-shrink:0;
+}
+.pv-close:hover{background:rgba(255,255,255,.25);}
+.pv-img-wrap{
+  flex:1;display:flex;align-items:center;justify-content:center;
+  padding:60px 60px 80px;max-width:100%;width:100%;
+  position:relative;
+}
+.pv-img-wrap img{
+  max-width:100%;max-height:100%;object-fit:contain;
+  border-radius:8px;
+}
+.pv-img-wrap .pv-no-img{
+  color:rgba(255,255,255,.3);font-size:14px;text-align:center;
+}
+.pv-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(255,255,255,.12);border:none;color:#fff;
+  width:44px;height:44px;border-radius:50%;font-size:22px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s;
+}
+.pv-nav:hover{background:rgba(255,255,255,.28);}
+.pv-prev{left:12px;}.pv-next{right:12px;}
+.pv-footer{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:12px 20px 18px;
+  background:linear-gradient(to top,rgba(0,0,0,.7),transparent);
+  text-align:center;
+}
+.pv-remarks{font-size:13px;color:rgba(255,255,255,.65);font-style:italic;}
+.pv-dots{display:flex;gap:6px;justify-content:center;margin-top:8px;}
+.pv-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.25);cursor:pointer;transition:all .2s;}
+.pv-dot.active{background:#fff;transform:scale(1.2);}
+.pv-approve-bar{
+  display:flex;gap:10px;justify-content:center;margin-top:12px;
+}
+
+/* ── MISC ── */
+.empty{text-align:center;padding:28px 20px;color:var(--text2);font-size:13px;}
+.loading{text-align:center;padding:20px;color:var(--text2);font-size:12px;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+select.fi option{background:var(--bg2);}
+@media(max-width:600px){.va-content{padding:14px;}}
+
+/* ── CAROUSEL MANAGER ── */
+.car-mgr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:4px;}
+.car-mgr-item{background:var(--bg3);border:2px solid var(--border);border-radius:10px;overflow:hidden;transition:border-color .2s;position:relative;}
+.car-mgr-item.disabled{opacity:.45;}
+.car-mgr-item.enabled{border-color:var(--teal);}
+.car-mgr-thumb{width:100%;height:110px;object-fit:cover;display:block;background:var(--bg2);}
+.car-mgr-thumb-empty{width:100%;height:110px;display:flex;align-items:center;justify-content:center;font-size:32px;background:var(--bg2);}
+.car-mgr-body{padding:8px 9px;}
+.car-mgr-sender{font-size:12px;font-weight:700;color:var(--text);margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.car-mgr-meta{font-size:10px;color:var(--text2);margin-bottom:6px;}
+.car-mgr-actions{display:flex;gap:5px;flex-wrap:wrap;}
+.car-mgr-order{position:absolute;top:6px;left:6px;background:rgba(0,0,0,.65);color:#fff;font-size:11px;font-weight:700;border-radius:20px;padding:2px 8px;font-family:'Barlow Condensed',sans-serif;letter-spacing:1px;}
+.car-mgr-toggle{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.65);border:none;border-radius:20px;padding:3px 9px;font-size:10px;font-weight:700;cursor:pointer;transition:background .2s;letter-spacing:.5px;}
+.car-mgr-toggle.on{background:var(--teal);color:#fff;}
+.car-mgr-toggle.off{background:rgba(232,64,64,.7);color:#fff;}
+.car-mgr-expiry{font-size:9px;color:var(--warn);margin-top:3px;}
+
+/* ── WIDGET STYLE SETTINGS ── */
+.wgt-style-card{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:11px 13px;margin-bottom:8px;}
+.wgt-style-header{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.wgt-style-icon{font-size:16px;flex-shrink:0;}
+.wgt-style-name{font-size:13px;font-weight:700;color:var(--text);flex:1;}
+.wgt-style-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;}
+.wgt-style-controls select{flex:1;min-width:120px;}
+.wgt-style-preview{background:var(--bg2);border-radius:6px;padding:6px 10px;font-size:13px;color:var(--text);border-left:3px solid var(--teal);transition:all .3s;}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════
+     SCREEN 1: LOGIN
+════════════════════════════════════════ -->
+<div class="auth-screen" id="loginScreen">
+  <div class="auth-box">
+    <div class="auth-logo">Vessel<span class="v">Board</span></div>
+    <div class="auth-sub">Vessel Admin Portal</div>
+    <div class="auth-badge">&#128682; VESSEL ADMIN ACCESS</div>
+
+    <div class="fg">
+      <label class="flbl">Vessel ID</label>
+      <input type="text" class="fi" id="loginVesselId" placeholder="e.g. 8606" maxlength="10"
+        onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div class="fg">
+      <label class="flbl">Username</label>
+      <input type="text" class="fi" id="loginUsername" placeholder="e.g. armada8606_admin"
+        onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div class="fg">
+      <label class="flbl">Password</label>
+      <input type="password" class="fi" id="loginPassword" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;"
+        onkeydown="if(event.key==='Enter')doLogin()"/>
+    </div>
+    <div class="auth-err" id="loginErr">Invalid credentials. Please try again.</div>
+    <button class="btn btn-p btn-full" onclick="doLogin()" id="loginBtn">Sign In &#10148;</button>
+    <div class="auth-note">Contact your Super Admin if you have forgotten your credentials.</div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     SCREEN 2: ACTIVATION
+════════════════════════════════════════ -->
+<div class="auth-screen" id="activationScreen" style="display:none">
+  <div class="auth-box">
+    <span class="back-link" onclick="showLogin()">&#8592; Back to login</span>
+    <div class="auth-logo">Vessel<span class="v">Board</span></div>
+    <div class="auth-sub">Account Activation</div>
+    <div class="auth-badge">&#128272; ONE-TIME ACTIVATION</div>
+
+    <div style="font-size:13px;color:var(--text2);margin-bottom:18px;line-height:1.6;">
+      Welcome, <strong id="actUsername" style="color:var(--text)">—</strong>! Your account requires a
+      one-time activation code. Contact your Super Admin to get it.
+    </div>
+    <div class="fg">
+      <label class="flbl">Activation Code</label>
+      <input type="text" class="fi code-input" id="actCode" placeholder="VA-8606-XXXX" maxlength="16"
+        oninput="this.value=this.value.toUpperCase()"
+        onkeydown="if(event.key==='Enter')doActivate()"/>
+    </div>
+    <div class="auth-err" id="actErr">Invalid or expired activation code.</div>
+    <button class="btn btn-p btn-full" onclick="doActivate()" id="actBtn">Activate Account &#10148;</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════
+     APP DASHBOARD
+════════════════════════════════════════ -->
+<div id="vaApp" style="display:none;flex-direction:column;">
+
+  <!-- Top Bar -->
+  <div class="va-topbar">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <span class="va-logo">Vessel<span class="v">Board</span></span>
+      <span class="va-vessel-chip" id="vesselChip">—</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="va-user-pill">
+        <div class="va-avatar" id="vaAvatar">—</div>
+        <span class="va-username" id="vaUsername">—</span>
+      </div>
+      <button class="logout-btn" onclick="doLogout()">&#128274; Logout</button>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="va-tabs">
+    <div class="va-tab active" onclick="switchTab('announcements')" id="tab-announcements">&#128226; Announcements</div>
+    <div class="va-tab" onclick="switchTab('boards')" id="tab-boards">&#128250; Boards</div>
+    <div class="va-tab" onclick="switchTab('submissions')" id="tab-submissions">&#128248; Submissions <span class="notif-badge" id="subBadge" style="display:none">0</span></div>
+    <div class="va-tab" onclick="switchTab('carousel')" id="tab-carousel">&#127917; Carousel</div>
+    <div class="va-tab" onclick="switchTab('birthdays')" id="tab-birthdays">&#127874; Birthdays</div>
+    <div class="va-tab" onclick="switchTab('settings')" id="tab-settings">&#9881;&#65039; Settings</div>
+  </div>
+
+  <div class="va-content">
+
+    <!-- ── Mini Stats Bar ── -->
+    <div class="mini-stats" id="miniStats">
+      <div class="mini-stat"><div class="mini-stat-val" id="ms-boards">—</div><div class="mini-stat-lbl">Boards</div></div>
+      <div class="mini-stat"><div class="mini-stat-val" id="ms-ann">—</div><div class="mini-stat-lbl">Announcements</div></div>
+      <div class="mini-stat"><div class="mini-stat-val" id="ms-pending" style="color:var(--warn)">—</div><div class="mini-stat-lbl">Pending</div></div>
+      <div class="mini-stat"><div class="mini-stat-val" id="ms-bdays">—</div><div class="mini-stat-lbl">Birthdays</div></div>
+    </div>
+
+    <!-- ════ ANNOUNCEMENTS TAB ════ -->
+    <div class="tab-pane active" id="pane-announcements">
+      <div class="card">
+        <div class="card-title">&#128226; Post New Announcement</div>
+        <div class="fg">
+          <label class="flbl">Message</label>
+          <textarea class="fi" id="annBody" placeholder="Write your announcement for the messroom board..." style="resize:none;height:80px;"></textarea>
+        </div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div style="flex:1;min-width:140px;">
+            <label class="flbl">Priority</label>
+            <select class="fi" id="annPriority">
+              <option value="general">&#128203; General</option>
+              <option value="important">&#9888;&#65039; Important</option>
+              <option value="urgent">&#128680; Urgent</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:180px;">
+            <label class="flbl">Expires At (optional)</label>
+            <input type="datetime-local" class="fi" id="annExpiry"/>
+          </div>
+          <button class="btn btn-p" onclick="postAnnouncement()">Post &#10148;</button>
+        </div>
+      </div>
+
+      <div class="section-lbl">Active Announcements</div>
+      <div id="annList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- ════ BOARDS TAB ════ -->
+    <div class="tab-pane" id="pane-boards">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+        <div class="section-lbl" style="margin:0;">Display Boards</div>
+        <button class="btn btn-p btn-sm" onclick="openCreateBoardModal()">&#43; New Board</button>
+      </div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+        Each board needs its access code entered once on the display device (TV browser) to activate.
+        Revoking a code takes the screen offline immediately.
+      </div>
+      <div id="boardsList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- ════ SUBMISSIONS TAB ════ -->
+    <div class="tab-pane" id="pane-submissions">
+      <div class="section-lbl">Crew Photo Submissions</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:14px;line-height:1.6;">
+        Crew submit photos by scanning the QR code on the board. Review each one and approve to add
+        to the board carousel, or reject to discard. Never approve inappropriate content.
+      </div>
+      <div id="subList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- ════ CAROUSEL TAB ════ -->
+    <div class="tab-pane" id="pane-carousel">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        <div>
+          <div class="section-lbl" style="margin-bottom:4px;">&#127917; Carousel Manager</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.6;max-width:600px;">
+            Manage which approved photos appear on the messroom board carousel. Toggle photos on/off and reorder them.
+            Photos are automatically removed after <strong style="color:var(--warn);">30 days</strong>.
+          </div>
+        </div>
+        <button class="btn btn-p btn-sm" onclick="loadCarousel()" style="flex-shrink:0;">&#8635; Refresh</button>
+      </div>
+
+      <!-- Stats bar -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;">
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">&#9989;</span>
+          <div><div style="font-size:16px;font-weight:700;color:var(--safe);" id="car-count-on">—</div><div style="font-size:10px;color:var(--text2);">Showing</div></div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">&#128683;</span>
+          <div><div style="font-size:16px;font-weight:700;color:var(--text2);" id="car-count-off">—</div><div style="font-size:10px;color:var(--text2);">Hidden</div></div>
+        </div>
+        <div style="background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:9px 14px;display:flex;align-items:center;gap:8px;">
+          <span style="font-size:18px;">&#128247;</span>
+          <div><div style="font-size:16px;font-weight:700;color:var(--text);" id="car-count-total">—</div><div style="font-size:10px;color:var(--text2);">Total</div></div>
+        </div>
+      </div>
+
+      <div id="carouselManagerList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- ════ BIRTHDAYS TAB ════ -->
+    <div class="tab-pane" id="pane-birthdays">
+      <div class="card">
+        <div class="card-title">&#127874; Add Crew Birthday</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+          <div style="flex:1;min-width:120px;">
+            <label class="flbl">Full Name</label>
+            <input type="text" class="fi" id="bdayName" placeholder="e.g. Juan Santos"/>
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <label class="flbl">Rank / Role</label>
+            <input type="text" class="fi" id="bdayRank" placeholder="e.g. Chief Officer"/>
+          </div>
+          <div style="min-width:150px;">
+            <label class="flbl">Birthday</label>
+            <input type="date" class="fi" id="bdayDate"/>
+          </div>
+          <button class="btn btn-p" onclick="addBirthday()">&#43; Add</button>
+        </div>
+      </div>
+
+      <div class="section-lbl">Crew Birthday List</div>
+      <div id="bdayList"><div class="loading">&#9729;&#65039; Loading...</div></div>
+    </div>
+
+    <!-- ════ SETTINGS TAB ════ -->
+    <div class="tab-pane" id="pane-settings">
+
+      <!-- Timezone -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">&#128336; Clock &amp; Timezone</div>
+        <div class="fg">
+          <label class="flbl">Board Timezone</label>
+          <select class="fi" id="setTimezone">
+            <option value="UTC+0">UTC+0 — Greenwich Mean Time</option>
+            <option value="UTC+1">UTC+1 — Central European Time</option>
+            <option value="UTC+2">UTC+2 — Eastern European Time</option>
+            <option value="UTC+3">UTC+3 — Moscow / Arabia Standard Time</option>
+            <option value="UTC+4">UTC+4 — Gulf Standard Time</option>
+            <option value="UTC+5">UTC+5 — Pakistan Standard Time</option>
+            <option value="UTC+5.5">UTC+5:30 — India Standard Time</option>
+            <option value="UTC+6">UTC+6 — Bangladesh / Omsk Time</option>
+            <option value="UTC+7">UTC+7 — Indochina / Western Indonesia</option>
+            <option value="UTC+8">UTC+8 — Philippines / Singapore / CST</option>
+            <option value="UTC+9">UTC+9 — Japan / Korea Standard Time</option>
+            <option value="UTC+10">UTC+10 — Australian Eastern / VLAT</option>
+            <option value="UTC+11">UTC+11 — Lord Howe / Magadan</option>
+            <option value="UTC+12">UTC+12 — NZST / Fiji</option>
+            <option value="UTC-3">UTC-3 — Buenos Aires / Brasilia</option>
+            <option value="UTC-4">UTC-4 — Atlantic / Caracas</option>
+            <option value="UTC-5">UTC-5 — Eastern Time (US &amp; Canada)</option>
+            <option value="UTC-6">UTC-6 — Central Time (US &amp; Canada)</option>
+            <option value="UTC-7">UTC-7 — Mountain Time</option>
+            <option value="UTC-8">UTC-8 — Pacific Time (US &amp; Canada)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Carousel Speed -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">&#128247; Photo Carousel</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <label class="flbl" style="margin:0;white-space:nowrap;">Slide Speed</label>
+          <input type="range" id="carouselSpeed" min="3" max="15" value="5" style="flex:1;"
+            oninput="document.getElementById('carouselSpeedVal').textContent=this.value+'s'"/>
+          <span style="font-size:13px;color:var(--teal);font-weight:700;min-width:30px;" id="carouselSpeedVal">5s</span>
+        </div>
+      </div>
+
+      <!-- Announcement Text Appearance -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">&#128278; Announcement Text</div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start;margin-bottom:12px;">
+          <div style="flex:1;min-width:140px;">
+            <label class="flbl">Letter Size</label>
+            <select class="fi" id="setFontSize" onchange="updateAnnPreview()">
+              <option value="small">Small — 12px</option>
+              <option value="normal" selected>Normal — 14px</option>
+              <option value="large">Large — 17px</option>
+              <option value="xlarge">Extra Large — 21px</option>
+            </select>
+          </div>
+          <div style="flex:1;min-width:140px;">
+            <label class="flbl">Text Color</label>
+            <select class="fi" id="setAnnColor" onchange="updateAnnPreview()">
+              <option value="default">Default (theme color)</option>
+              <option value="white">&#9898; White</option>
+              <option value="yellow">&#9728; Warm Yellow</option>
+              <option value="lblue">&#9910; Light Blue</option>
+              <option value="teal">&#9670; Teal</option>
+              <option value="green">&#9632; Soft Green</option>
+            </select>
+          </div>
+        </div>
+        <!-- Live preview -->
+        <div style="background:var(--bg3);border-radius:8px;padding:10px 13px;border-left:3px solid var(--danger);">
+          <div style="font-size:8px;font-weight:700;letter-spacing:2px;color:var(--danger);margin-bottom:5px;">&#128680; URGENT — PREVIEW</div>
+          <div id="annTextPreview" style="font-size:14px;font-weight:500;line-height:1.5;color:var(--text);transition:all .3s;">
+            This is how your announcement text will look on the board.
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text2);margin-top:8px;">Changes apply to all announcements on the board after saving.</div>
+      </div>
+
+      <!-- Auto Refresh -->
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;gap:10px;">
+          <div style="flex:1;">
+            <div class="card-title" style="margin-bottom:4px;">&#128260; Auto Refresh</div>
+            <div style="font-size:11px;color:var(--text2);line-height:1.55;">
+              The board already updates in real-time via Firebase. Auto-refresh is a safety net that reloads
+              the page after a set time in case the connection drops silently.
+            </div>
+          </div>
+          <div class="toggle-wrap" style="flex-shrink:0;padding-top:2px;">
+            <div class="toggle-track" id="toggle-refresh" onclick="toggleSetting('refresh')"><div class="toggle-knob"></div></div>
+            <span class="toggle-lbl" id="lbl-refresh">Off</span>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <label class="flbl" style="margin:0;white-space:nowrap;">Reload every</label>
+          <select class="fi" id="setRefreshMins" style="max-width:180px;">
+            <option value="5">5 minutes</option>
+            <option value="10" selected>10 minutes</option>
+            <option value="15">15 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Position & Weather -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">🌤️ Position &amp; Weather</div>
+
+        <div style="background:rgba(0,194,184,.08);border:1px solid rgba(0,194,184,.2);border-radius:8px;padding:10px 12px;margin-bottom:14px;">
+          <div style="font-size:12px;font-weight:700;color:var(--teal);margin-bottom:3px;">✅ Powered by Open-Meteo — 100% Free</div>
+          <div style="font-size:11px;color:var(--text2);line-height:1.55;">
+            No API key, no registration, no payment required. Just enter the vessel coordinates from the bridge GPS/ECDIS and enable the weather widget. Updates every 30 minutes automatically.
+          </div>
+        </div>
+
+        <!-- Coordinates -->
+        <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:120px;">
+            <label class="flbl">Latitude</label>
+            <input type="number" step="0.0001" min="-90" max="90" class="fi" id="setLat"
+              placeholder="e.g. 10.3461" oninput="updateCoordPreview()"/>
+          </div>
+          <div style="flex:1;min-width:120px;">
+            <label class="flbl">Longitude</label>
+            <input type="number" step="0.0001" min="-180" max="180" class="fi" id="setLon"
+              placeholder="e.g. 107.0843" oninput="updateCoordPreview()"/>
+          </div>
+        </div>
+        <div id="coordPreview" style="font-size:11px;font-family:monospace;color:var(--teal);margin-bottom:12px;display:none;padding:6px 10px;background:var(--bg3);border-radius:6px;"></div>
+        <div style="font-size:10px;color:var(--text2);margin-bottom:12px;">
+          ℹ️ Update these coordinates periodically from the bridge as the vessel moves. The weather will re-fetch automatically after saving.
+        </div>
+
+        <!-- Toggles -->
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">Show Weather on Board</div>
+            <div class="setting-desc">Temperature, conditions, wind speed and humidity</div>
+          </div>
+          <div class="toggle-wrap">
+            <div class="toggle-track" id="toggle-weather" onclick="toggleSetting('weather')"><div class="toggle-knob"></div></div>
+            <span class="toggle-lbl" id="lbl-weather">Off</span>
+          </div>
+        </div>
+        <div class="setting-row" style="border-bottom:none;padding-bottom:0;">
+          <div class="setting-info">
+            <div class="setting-name">Show Position Map on Board</div>
+            <div class="setting-desc">Mini map with vessel marker — uses OpenStreetMap (also free)</div>
+          </div>
+          <div class="toggle-wrap">
+            <div class="toggle-track" id="toggle-posmap" onclick="toggleSetting('posmap')"><div class="toggle-knob"></div></div>
+            <span class="toggle-lbl" id="lbl-posmap">Off</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Next Port -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">&#128205; Next Port</div>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;">
+          <div style="flex:1;min-width:140px;">
+            <label class="flbl">Port Name</label>
+            <input type="text" class="fi" id="setNextPort" placeholder="e.g. Vung Tau, VN"/>
+          </div>
+          <div style="flex:1;min-width:170px;">
+            <label class="flbl">ETA (local time)</label>
+            <input type="datetime-local" class="fi" id="setNextPortEta"/>
+          </div>
+        </div>
+        <div style="font-size:10px;color:var(--text2);margin-top:8px;">
+          Displays on the board sidebar with countdown. Leave blank to hide the widget.
+        </div>
+      </div>
+
+      <!-- Safety Ticker -->
+      <div class="card" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div>
+            <div class="card-title" style="margin:0;">&#9875; Safety Ticker</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:3px;">Scrolling message strip at the bottom of the board</div>
+          </div>
+          <div class="toggle-wrap">
+            <div class="toggle-track" id="toggle-ticker" onclick="toggleSetting('ticker')"><div class="toggle-knob"></div></div>
+            <span class="toggle-lbl" id="lbl-ticker">Off</span>
+          </div>
+        </div>
+        <div class="fg" style="margin-bottom:6px;">
+          <label class="flbl">Messages (one per line)</label>
+          <textarea class="fi" id="setTickerMessages" placeholder="⚓ SAFETY FIRST — Always wear your PPE&#10;🚭 Smoking in designated areas only&#10;📻 Emergencies: VHF Ch.16" style="resize:none;height:90px;font-size:12px;"></textarea>
+        </div>
+        <div style="font-size:10px;color:var(--text2);">Each line = one message separated by · on the board</div>
+      </div>
+
+      <!-- QR on Board -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">&#128247; Board QR Code</div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-name">Show QR Code on Board</div>
+            <div class="setting-desc">Crew can scan directly from the messroom TV — no printing needed</div>
+          </div>
+          <div class="toggle-wrap">
+            <div class="toggle-track" id="toggle-qr" onclick="toggleSetting('qr')"><div class="toggle-knob"></div></div>
+            <span class="toggle-lbl" id="lbl-qr">Off</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Watch Schedule -->
+      <div class="card" style="margin-bottom:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">&#9201; Watch Schedule</div>
+          <div class="toggle-wrap">
+            <div class="toggle-track on" id="toggle-watch" onclick="toggleSetting('watch')"><div class="toggle-knob"></div></div>
+            <span class="toggle-lbl" id="lbl-watch">On</span>
+          </div>
+        </div>
+        <div id="watchRows">
+          <div class="sched-row">
+            <input value="0000–0400" style="max-width:100px;" placeholder="Time"/>
+            <input value="C/O Santos" style="flex:1;" placeholder="Officer name"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+          <div class="sched-row">
+            <input value="0400–0800" style="max-width:100px;" placeholder="Time"/>
+            <input value="2/O Dela Cruz" style="flex:1;" placeholder="Officer name"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+          <div class="sched-row">
+            <input value="0800–1200" style="max-width:100px;" placeholder="Time"/>
+            <input value="3/O Reyes" style="flex:1;" placeholder="Officer name"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+          <div class="sched-row">
+            <input value="1200–1600" style="max-width:100px;" placeholder="Time"/>
+            <input value="C/O Santos" style="flex:1;" placeholder="Officer name"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+          <div class="sched-row">
+            <input value="1600–2000" style="max-width:100px;" placeholder="Time"/>
+            <input value="2/O Dela Cruz" style="flex:1;" placeholder="Officer name"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+          <div class="sched-row">
+            <input value="2000–2400" style="max-width:100px;" placeholder="Time"/>
+            <input value="3/O Reyes" style="flex:1;" placeholder="Officer name"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+        </div>
+        <button class="add-sched-btn" onclick="addWatchRow()">&#43; Add watch entry</button>
+      </div>
+
+      <!-- Meal Times -->
+      <div class="card" style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <div class="card-title" style="margin:0;">&#127374; Meal Times</div>
+          <div class="toggle-wrap">
+            <div class="toggle-track on" id="toggle-meal" onclick="toggleSetting('meal')"><div class="toggle-knob"></div></div>
+            <span class="toggle-lbl" id="lbl-meal">On</span>
+          </div>
+        </div>
+        <div id="mealRows">
+          <div class="sched-row">
+            <input value="Breakfast" style="max-width:100px;" placeholder="Meal name"/>
+            <input type="time" value="07:00" style="flex:1;"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+          <div class="sched-row">
+            <input value="Lunch" style="max-width:100px;" placeholder="Meal name"/>
+            <input type="time" value="12:00" style="flex:1;"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+          <div class="sched-row">
+            <input value="Dinner" style="max-width:100px;" placeholder="Meal name"/>
+            <input type="time" value="18:00" style="flex:1;"/>
+            <button class="del-sched" onclick="this.closest('.sched-row').remove()">&#10005;</button>
+          </div>
+        </div>
+        <button class="add-sched-btn" onclick="addMealRow()">&#43; Add meal entry</button>
+      </div>
+
+      <!-- Board Theme -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="card-title">&#127912; Board Display Theme</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.55;">
+          Choose the visual theme for the messroom TV. Changes take effect immediately on the board after saving.
+        </div>
+        <div class="theme-grid" id="themeGrid">
+
+          <!-- Theme 1: Sailor's Midnight -->
+          <div class="theme-card selected" id="theme-card-midnight" onclick="selectTheme('midnight')">
+            <div class="theme-preview" style="background:#0a0f1e;">
+              <div class="tp-header" style="background:#0d1526;border-bottom:1px solid rgba(255,255,255,.07);">
+                <span class="tp-header-title" style="color:#e2e8f0;">MV ARMADA</span>
+                <span class="tp-clock" style="color:#00d4ff;">14:32</span>
+              </div>
+              <div class="tp-body">
+                <div class="tp-main">
+                  <div class="tp-carousel" style="background:linear-gradient(135deg,#0c3868,#1d6fa4);border-radius:4px;"></div>
+                  <div class="tp-ann" style="background:rgba(239,68,68,.15);border-left-color:#ef4444;"></div>
+                  <div class="tp-ann" style="background:rgba(245,158,11,.12);border-left-color:#f59e0b;"></div>
+                  <div class="tp-ann" style="background:rgba(0,212,255,.1);border-left-color:#00d4ff;"></div>
+                </div>
+                <div class="tp-sidebar">
+                  <div class="tp-widget" style="background:#0a1f2a;border:1px solid rgba(0,212,255,.3);border-radius:4px;"></div>
+                  <div class="tp-widget" style="background:#111d35;border-radius:4px;"></div>
+                  <div class="tp-widget" style="background:#111d35;border-radius:4px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="theme-label" style="background:#0d1526;border-top:1px solid rgba(255,255,255,.07);">
+              <div class="theme-dot" style="background:#00d4ff;box-shadow:0 0 6px #00d4ff66;"></div>
+              <div>
+                <div class="theme-label-name" style="color:#e2e8f0;">Sailor's Midnight</div>
+                <div class="theme-label-desc">Dark navy · Cyan accent</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Theme 2: Cheerful Day -->
+          <div class="theme-card" id="theme-card-cheerful" onclick="selectTheme('cheerful')">
+            <div class="theme-preview" style="background:#f0fafe;">
+              <div class="tp-header" style="background:#2a3560;border-bottom:1px solid rgba(255,255,255,.1);">
+                <span class="tp-header-title" style="color:#fff;">MV ARMADA</span>
+                <span class="tp-clock" style="color:#F9E69F;">14:32</span>
+              </div>
+              <div class="tp-body">
+                <div class="tp-main">
+                  <div class="tp-carousel" style="background:linear-gradient(135deg,#7c2700,#c0531a);border-radius:4px;"></div>
+                  <div class="tp-ann" style="background:rgba(217,67,42,.1);border-left-color:#d9432a;"></div>
+                  <div class="tp-ann" style="background:rgba(192,122,16,.1);border-left-color:#c07a10;"></div>
+                  <div class="tp-ann" style="background:rgba(42,138,154,.1);border-left-color:#2a8a9a;"></div>
+                </div>
+                <div class="tp-sidebar">
+                  <div class="tp-widget" style="background:#fff7e0;border:1px solid rgba(232,131,74,.4);border-radius:4px;"></div>
+                  <div class="tp-widget" style="background:#e8f8ff;border-radius:4px;"></div>
+                  <div class="tp-widget" style="background:#e8f8ff;border-radius:4px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="theme-label" style="background:#fff;border-top:1px solid #c8e8f0;">
+              <div class="theme-dot" style="background:#e8834a;"></div>
+              <div>
+                <div class="theme-label-name" style="color:#1a2340;">Cheerful Day</div>
+                <div class="theme-label-desc">Light · Warm orange</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Theme 3: Ocean Infinity -->
+          <div class="theme-card" id="theme-card-ocean" onclick="selectTheme('ocean')">
+            <div class="theme-preview" style="background:#06111e;">
+              <!-- Green accent bar -->
+              <div style="height:2px;background:linear-gradient(to right,#0e1c3d,#0fd655,#0fd655,#0e1c3d);"></div>
+              <div class="tp-header" style="background:#0e1c3d;border-bottom:1px solid rgba(15,214,85,.25);height:20px;">
+                <span class="tp-header-title" style="color:#fff;letter-spacing:2px;">MV ARMADA</span>
+                <span class="tp-clock" style="color:#0fd655;">14:32</span>
+              </div>
+              <div class="tp-body">
+                <div class="tp-main">
+                  <div class="tp-carousel" style="background:linear-gradient(135deg,#1a1540,#4a3d8a);border-radius:4px;"></div>
+                  <div class="tp-ann" style="background:rgba(232,68,68,.13);border-left-color:#e84444;"></div>
+                  <div class="tp-ann" style="background:rgba(240,160,48,.1);border-left-color:#f0a030;"></div>
+                  <div class="tp-ann" style="background:rgba(15,214,85,.1);border-left-color:#0fd655;"></div>
+                </div>
+                <div class="tp-sidebar">
+                  <div class="tp-widget" style="background:#081a0e;border:1px solid rgba(15,214,85,.35);border-radius:4px;"></div>
+                  <div class="tp-widget" style="background:#0d2240;border:1px solid rgba(15,214,85,.15);border-radius:4px;"></div>
+                  <div class="tp-widget" style="background:#0d2240;border:1px solid rgba(15,214,85,.15);border-radius:4px;"></div>
+                </div>
+              </div>
+            </div>
+            <div class="theme-label" style="background:#0a1828;border-top:1px solid rgba(15,214,85,.2);">
+              <div class="theme-dot" style="background:#0fd655;box-shadow:0 0 6px #0fd65566;"></div>
+              <div>
+                <div class="theme-label-name" style="color:#f0fff4;">Ocean Infinity</div>
+                <div class="theme-label-desc">Deep navy · Armada green</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /theme-grid -->
+
+        <!-- Live preview strip -->
+        <div style="margin-top:12px;padding:10px 12px;background:var(--bg3);border-radius:8px;display:flex;align-items:center;gap:10px;">
+          <div id="themePreviewDot" style="width:12px;height:12px;border-radius:50%;background:#00d4ff;flex-shrink:0;box-shadow:0 0 6px #00d4ff66;transition:background .3s;"></div>
+          <div>
+            <div style="font-size:12px;font-weight:600;color:var(--text);" id="themePreviewName">Sailor's Midnight selected</div>
+            <div style="font-size:10px;color:var(--text2);" id="themePreviewDesc">Board will display dark navy background with cyan accent</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Widget Text Settings -->
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">&#9881;&#65039; Sidebar Widget Text</div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:14px;line-height:1.55;">
+          Customize the text size and color for each sidebar widget on the board. Changes apply after saving.
+        </div>
+
+        <!-- Watch Schedule -->
+        <div class="wgt-style-card">
+          <div class="wgt-style-header"><div class="wgt-style-icon">⏱</div><div class="wgt-style-name">Watch Schedule</div></div>
+          <div class="wgt-style-controls">
+            <select class="fi" id="wgt-size-watch" onchange="updateWidgetPreview('watch')">
+              <option value="small">Small — 11px</option>
+              <option value="normal" selected>Normal — 13px</option>
+              <option value="large">Large — 15px</option>
+              <option value="xlarge">X-Large — 18px</option>
+            </select>
+            <select class="fi" id="wgt-color-watch" onchange="updateWidgetPreview('watch')">
+              <option value="default">Default</option><option value="white">White</option>
+              <option value="yellow">Warm Yellow</option><option value="lblue">Light Blue</option>
+              <option value="teal">Teal</option><option value="green">Soft Green</option>
+            </select>
+          </div>
+          <div class="wgt-style-preview" id="wgt-prev-watch">0800–1200 · C/O Santos</div>
+        </div>
+
+        <!-- Meal Times -->
+        <div class="wgt-style-card">
+          <div class="wgt-style-header"><div class="wgt-style-icon">🍽</div><div class="wgt-style-name">Meal Times</div></div>
+          <div class="wgt-style-controls">
+            <select class="fi" id="wgt-size-meal" onchange="updateWidgetPreview('meal')">
+              <option value="small">Small — 11px</option>
+              <option value="normal" selected>Normal — 13px</option>
+              <option value="large">Large — 15px</option>
+              <option value="xlarge">X-Large — 18px</option>
+            </select>
+            <select class="fi" id="wgt-color-meal" onchange="updateWidgetPreview('meal')">
+              <option value="default">Default</option><option value="white">White</option>
+              <option value="yellow">Warm Yellow</option><option value="lblue">Light Blue</option>
+              <option value="teal">Teal</option><option value="green">Soft Green</option>
+            </select>
+          </div>
+          <div class="wgt-style-preview" id="wgt-prev-meal">Breakfast · 07:00</div>
+        </div>
+
+        <!-- Weather -->
+        <div class="wgt-style-card">
+          <div class="wgt-style-header"><div class="wgt-style-icon">🌤</div><div class="wgt-style-name">Weather</div></div>
+          <div class="wgt-style-controls">
+            <select class="fi" id="wgt-size-weather" onchange="updateWidgetPreview('weather')">
+              <option value="small">Small — 11px</option>
+              <option value="normal" selected>Normal — 13px</option>
+              <option value="large">Large — 15px</option>
+              <option value="xlarge">X-Large — 18px</option>
+            </select>
+            <select class="fi" id="wgt-color-weather" onchange="updateWidgetPreview('weather')">
+              <option value="default">Default</option><option value="white">White</option>
+              <option value="yellow">Warm Yellow</option><option value="lblue">Light Blue</option>
+              <option value="teal">Teal</option><option value="green">Soft Green</option>
+            </select>
+          </div>
+          <div class="wgt-style-preview" id="wgt-prev-weather">Feels like 32°C · NE 14 kn</div>
+        </div>
+
+        <!-- Next Port -->
+        <div class="wgt-style-card">
+          <div class="wgt-style-header"><div class="wgt-style-icon">📍</div><div class="wgt-style-name">Next Port</div></div>
+          <div class="wgt-style-controls">
+            <select class="fi" id="wgt-size-nextport" onchange="updateWidgetPreview('nextport')">
+              <option value="small">Small — 11px</option>
+              <option value="normal" selected>Normal — 13px</option>
+              <option value="large">Large — 15px</option>
+              <option value="xlarge">X-Large — 18px</option>
+            </select>
+            <select class="fi" id="wgt-color-nextport" onchange="updateWidgetPreview('nextport')">
+              <option value="default">Default</option><option value="white">White</option>
+              <option value="yellow">Warm Yellow</option><option value="lblue">Light Blue</option>
+              <option value="teal">Teal</option><option value="green">Soft Green</option>
+            </select>
+          </div>
+          <div class="wgt-style-preview" id="wgt-prev-nextport">VUNG TAU, VN · 2d 14h away</div>
+        </div>
+
+        <!-- Birthday -->
+        <div class="wgt-style-card">
+          <div class="wgt-style-header"><div class="wgt-style-icon">🎂</div><div class="wgt-style-name">Birthday</div></div>
+          <div class="wgt-style-controls">
+            <select class="fi" id="wgt-size-birthday" onchange="updateWidgetPreview('birthday')">
+              <option value="small">Small — 11px</option>
+              <option value="normal" selected>Normal — 13px</option>
+              <option value="large">Large — 15px</option>
+              <option value="xlarge">X-Large — 18px</option>
+            </select>
+            <select class="fi" id="wgt-color-birthday" onchange="updateWidgetPreview('birthday')">
+              <option value="default">Default</option><option value="white">White</option>
+              <option value="yellow">Warm Yellow</option><option value="lblue">Light Blue</option>
+              <option value="teal">Teal</option><option value="green">Soft Green</option>
+            </select>
+          </div>
+          <div class="wgt-style-preview" id="wgt-prev-birthday">Juan Santos · Chief Officer</div>
+        </div>
+
+        <!-- QR Widget -->
+        <div class="wgt-style-card">
+          <div class="wgt-style-header"><div class="wgt-style-icon">📷</div><div class="wgt-style-name">QR Upload Label</div></div>
+          <div class="wgt-style-controls">
+            <select class="fi" id="wgt-size-qrlabel" onchange="updateWidgetPreview('qrlabel')">
+              <option value="small">Small — 11px</option>
+              <option value="normal" selected>Normal — 13px</option>
+              <option value="large">Large — 15px</option>
+              <option value="xlarge">X-Large — 18px</option>
+            </select>
+            <select class="fi" id="wgt-color-qrlabel" onchange="updateWidgetPreview('qrlabel')">
+              <option value="default">Default</option><option value="white">White</option>
+              <option value="yellow">Warm Yellow</option><option value="lblue">Light Blue</option>
+              <option value="teal">Teal</option><option value="green">Soft Green</option>
+            </select>
+          </div>
+          <div class="wgt-style-preview" id="wgt-prev-qrlabel">Scan to upload your photo</div>
+        </div>
+      </div>
+
+      <button class="btn btn-p" style="width:100%;padding:12px;" onclick="saveSettings()">
+        &#128190; Save All Settings
+      </button>
+    </div>
+
+  </div><!-- /va-content -->
+</div><!-- /vaApp -->
+
+<!-- ════ MODALS ════ -->
+
+<!-- Create Board Modal -->
+<div class="mbg" id="createBoardModal">
+  <div class="modal">
+    <div class="modal-title">&#128250; Create Display Board</div>
+    <div class="fg"><label class="flbl">Board Name</label><input type="text" class="fi" id="boardName" placeholder="e.g. Messroom TV"/></div>
+    <div class="fg"><label class="flbl">Location / Description</label><input type="text" class="fi" id="boardLocation" placeholder="e.g. Port side of messroom"/></div>
+    <div style="font-size:11px;color:var(--text2);margin-bottom:4px;">A unique board code will be generated. Enter it once on the TV browser to activate the display.</div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeModal('createBoardModal')">Cancel</button>
+      <button class="btn btn-p" onclick="createBoard()">Create &amp; Get Code &#10148;</button>
+    </div>
+  </div>
+</div>
+
+<!-- Board Code Display -->
+<div class="mbg" id="boardCodeModal">
+  <div class="modal">
+    <div class="modal-title">&#128250; Board Access Code</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:6px;">Enter this code once on the messroom TV browser to activate the board display.</div>
+    <div class="gen-code-box">
+      <div>
+        <div class="gen-code-val" id="genBoardCode">—</div>
+        <div class="gen-code-hint">ENTER ONCE ON DISPLAY DEVICE</div>
+      </div>
+      <button class="btn btn-s btn-sm" onclick="copyCode('genBoardCode')">&#128203; Copy</button>
+    </div>
+    <div style="font-size:11px;color:var(--text2);margin-top:10px;">
+      Board URL: <span style="color:var(--accent);font-family:monospace;" id="boardUrl">—</span>
+    </div>
+    <div class="macts"><button class="btn btn-p" onclick="closeModal('boardCodeModal');loadBoards()">Done</button></div>
+  </div>
+</div>
+
+<!-- Edit Announcement Modal -->
+<div class="mbg" id="editAnnModal">
+  <div class="modal">
+    <div class="modal-title">&#9998; Edit Announcement</div>
+    <input type="hidden" id="editAnnId"/>
+    <div class="fg"><label class="flbl">Message</label><textarea class="fi" id="editAnnBody" style="resize:none;height:80px;"></textarea></div>
+    <div class="fg">
+      <label class="flbl">Priority</label>
+      <select class="fi" id="editAnnPriority">
+        <option value="general">&#128203; General</option>
+        <option value="important">&#9888;&#65039; Important</option>
+        <option value="urgent">&#128680; Urgent</option>
+      </select>
+    </div>
+    <div class="fg"><label class="flbl">Expires At (optional)</label><input type="datetime-local" class="fi" id="editAnnExpiry"/></div>
+    <div class="macts">
+      <button class="btn btn-s" onclick="closeModal('editAnnModal')">Cancel</button>
+      <button class="btn btn-p" onclick="saveEditAnn()">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PHOTO VIEWER ════ -->
+<div id="photoViewer">
+  <div class="pv-header">
+    <div>
+      <div class="pv-sender" id="pvSender">—</div>
+      <div class="pv-counter" id="pvCounter">1 / 1</div>
+    </div>
+    <button class="pv-close" onclick="closePhotoViewer()">&#10005;</button>
+  </div>
+
+  <div class="pv-img-wrap" id="pvImgWrap">
+    <button class="pv-nav pv-prev" id="pvPrev" onclick="pvNav(-1)">&#8249;</button>
+    <img id="pvImg" src="" alt="Submitted photo"/>
+    <div class="pv-no-img" id="pvNoImg" style="display:none;">Photo not available<br/><span style="font-size:11px;opacity:.6;">Storage may not be configured</span></div>
+    <button class="pv-nav pv-next" id="pvNext" onclick="pvNav(1)">&#8250;</button>
+  </div>
+
+  <div class="pv-footer">
+    <div class="pv-remarks" id="pvRemarks"></div>
+    <div class="pv-dots" id="pvDots"></div>
+    <div class="pv-approve-bar" id="pvApproveBar"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<!-- ════════════════════════════════════════
+     JAVASCRIPT
+════════════════════════════════════════ -->
+<script>
+// ============================================================
+// FIREBASE CONFIG — Same project as MarineStock Admin
+// ============================================================
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDzfmd1NbNYDvdM9O2AbIb-kW9e5paqwXc",
+  authDomain: "marinestock-c31ba.firebaseapp.com",
+  projectId: "marinestock-c31ba",
+  storageBucket: "marinestock-c31ba.firebasestorage.app",
+  messagingSenderId: "744159644997",
+  appId: "1:744159644997:web:243253eccfc9adc51dc22c"
+};
+
+// ============================================================
+// STATE
+// ============================================================
+var _fs = null, _storage = null;
+var session = { vesselId: null, vesselName: null, username: null };
+var appData = { announcements: [], boards: [], submissions: [], birthdays: [], carousel: [] };
+var carouselConfig = { order: [], disabled: [] }; // photo keys: "submissionId_photoIndex"
+var settings = { timezone:'UTC+8', showQR:false, watchVisible:true, mealVisible:true, carouselSpeed:5, watchSchedule:[], mealTimes:[], widgetStyles:{} };
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', function() {
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _fs = firebase.firestore();
+    _storage = firebase.storage();
+  } catch(e) { console.error('Firebase init:', e); alert('Firebase connection failed.'); return; }
+  checkSavedSession();
+});
+
+function checkSavedSession() {
+  try {
+    var saved = localStorage.getItem('vb_session');
+    if (!saved) return;
+    var s = JSON.parse(saved);
+    if (!s.vesselId || !s.username || !s.loginTime) return;
+    var elapsed = (Date.now() - s.loginTime) / (1000 * 60 * 60);
+    if (elapsed > 24) { localStorage.removeItem('vb_session'); return; }
+    // Verify account is still active and get fresh vessel name
+    _fs.collection('vboard/' + s.vesselId + '/admin').doc('account').get()
+      .then(async function(doc) {
+        if (!doc.exists || doc.data().username !== s.username || doc.data().active === false || !doc.data().activated) return;
+        session.vesselId = s.vesselId;
+        session.username = s.username;
+        // Always resolve vessel name fresh — don't trust stale cache
+        var vname = doc.data().vesselName || null;
+        if (!vname) {
+          try {
+            var vdoc = await _fs.collection('admin/config/vessels').doc(s.vesselId).get();
+            if (vdoc.exists && vdoc.data().name) vname = vdoc.data().name;
+          } catch(e) {}
+        }
+        session.vesselName = vname || ('Vessel ' + s.vesselId);
+        // Refresh cache with correct name
+        localStorage.setItem('vb_session', JSON.stringify({ vesselId: s.vesselId, username: s.username, vesselName: session.vesselName, loginTime: s.loginTime }));
+        startApp();
+      }).catch(function() {});
+  } catch(e) {}
+}
+
+// ============================================================
+// AUTH
+// ============================================================
+function hashPassword(pw) { return btoa(pw); }
+
+async function doLogin() {
+  var vid = document.getElementById('loginVesselId').value.trim();
+  var user = document.getElementById('loginUsername').value.trim();
+  var pw = document.getElementById('loginPassword').value;
+  var err = document.getElementById('loginErr');
+  err.style.display = 'none';
+  if (!vid || !user || !pw) { err.textContent = 'All fields are required.'; err.style.display = 'block'; return; }
+  var btn = document.getElementById('loginBtn');
+  btn.disabled = true; btn.textContent = 'Checking...';
+  try {
+    var doc = await _fs.collection('vboard/' + vid + '/admin').doc('account').get();
+    if (!doc.exists) throw new Error('Account not found');
+    var data = doc.data();
+    if (data.username !== user) throw new Error('Username mismatch');
+    if (data.passwordHash !== hashPassword(pw)) throw new Error('Wrong password');
+    if (data.active === false) { err.textContent = 'This account has been revoked. Contact your Super Admin.'; err.style.display = 'block'; btn.disabled = false; btn.textContent = 'Sign In ➤'; return; }
+    // Resolve vessel name — try account doc first (always accessible),
+    // then admin/config/vessels (accessible after Firestore rule update)
+    session.vesselId   = vid;
+    session.username   = user;
+    var vname = data.vesselName || null;
+    if (!vname) {
+      try {
+        var vdoc = await _fs.collection('admin/config/vessels').doc(vid).get();
+        if (vdoc.exists && vdoc.data().name) vname = vdoc.data().name;
+      } catch(e) { console.warn('Could not read vessels collection (update Firestore rules)'); }
+    }
+    session.vesselName = vname || ('Vessel ' + vid);
+    if (!data.activated) {
+      // Show activation screen
+      document.getElementById('loginScreen').style.display = 'none';
+      document.getElementById('actUsername').textContent = user;
+      document.getElementById('activationScreen').style.display = 'flex';
+    } else {
+      // Save session and go to app
+      localStorage.setItem('vb_session', JSON.stringify({ vesselId: vid, username: user, vesselName: session.vesselName, loginTime: Date.now() }));
+      startApp();
+    }
+  } catch(e) {
+    console.error(e);
+    err.textContent = 'Invalid credentials. Please check Vessel ID, username and password.';
+    err.style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Sign In ➤';
+}
+
+async function doActivate() {
+  var code = document.getElementById('actCode').value.trim().toUpperCase();
+  var err = document.getElementById('actErr');
+  err.style.display = 'none';
+  if (!code) { err.textContent = 'Enter the activation code.'; err.style.display = 'block'; return; }
+  var btn = document.getElementById('actBtn');
+  btn.disabled = true; btn.textContent = 'Verifying...';
+  try {
+    var doc = await _fs.collection('vboard/' + session.vesselId + '/admin').doc('account').get();
+    if (!doc.exists) throw new Error('Account not found');
+    var data = doc.data();
+    if (!data.activationCode || data.activationCode.toUpperCase() !== code) {
+      err.textContent = 'Invalid or expired activation code. Contact your Super Admin.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Activate Account ➤';
+      return;
+    }
+    // Mark as activated, clear activation code
+    await _fs.collection('vboard/' + session.vesselId + '/admin').doc('account').update({
+      activated: true,
+      activationCode: '',
+      activatedAt: new Date().toISOString()
+    });
+    localStorage.setItem('vb_session', JSON.stringify({ vesselId: session.vesselId, username: session.username, vesselName: session.vesselName, loginTime: Date.now() }));
+    toast('Account activated successfully!');
+    startApp();
+  } catch(e) {
+    console.error(e);
+    err.textContent = 'Verification failed. Please try again.';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Activate Account ➤';
+  }
+}
+
+function showLogin() {
+  document.getElementById('activationScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+}
+
+function doLogout() {
+  if (!confirm('Are you sure you want to logout?')) return;
+  localStorage.removeItem('vb_session');
+  session = { vesselId: null, vesselName: null, username: null };
+  document.getElementById('vaApp').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginPassword').value = '';
+}
+
+// ============================================================
+// APP START
+// ============================================================
+function startApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('activationScreen').style.display = 'none';
+  var app = document.getElementById('vaApp');
+  app.style.display = 'flex';
+  // Set header info
+  document.getElementById('vesselChip').textContent = session.vesselName || ('Vessel ' + session.vesselId);
+  var initials = session.username.split('_').map(function(w) { return w[0]; }).join('').toUpperCase().slice(0,2);
+  document.getElementById('vaAvatar').textContent = initials;
+  document.getElementById('vaUsername').textContent = session.username;
+  // Load all data
+  loadAllData();
+}
+
+function loadAllData() {
+  loadAnnouncements();
+  loadBoards();
+  loadSubmissions();
+  loadBirthdays();
+  loadSettings();
+  loadCarouselConfig();
+  runAutoCleanup(); // silently delete submissions older than 30 days
+}
+
+// ============================================================
+// TABS
+// ============================================================
+function switchTab(tab) {
+  ['announcements','boards','submissions','carousel','birthdays','settings'].forEach(function(t) {
+    document.getElementById('tab-' + t).classList.toggle('active', t === tab);
+    document.getElementById('pane-' + t).classList.toggle('active', t === tab);
+  });
+  // Load carousel data when switching to that tab
+  if (tab === 'carousel') loadCarousel();
+}
+
+// ============================================================
+// ANNOUNCEMENTS
+// ============================================================
+function loadAnnouncements() {
+  document.getElementById('annList').innerHTML = '<div class="loading">&#9729;&#65039; Loading...</div>';
+  _fs.collection('vboard/' + session.vesselId + '/announcements')
+    .orderBy('createdAt','desc').get()
+    .then(function(snap) {
+      appData.announcements = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      renderAnnouncements();
+      document.getElementById('ms-ann').textContent = appData.announcements.filter(function(a){return a.active!==false;}).length;
+    }).catch(function(e) { console.error(e); document.getElementById('annList').innerHTML = '<div class="empty">Failed to load</div>'; });
+}
+
+function renderAnnouncements() {
+  var el = document.getElementById('annList');
+  var active = appData.announcements.filter(function(a) { return a.active !== false; });
+  if (!active.length) { el.innerHTML = '<div class="empty">No active announcements. Post one above.</div>'; return; }
+  var priorityColors = { urgent: 'var(--danger)', important: 'var(--warn)', general: 'var(--accent)' };
+  var priorityLabels = { urgent: '&#128680; URGENT', important: '&#9888;&#65039; IMPORTANT', general: '&#128203; GENERAL' };
+  var html = '';
+  active.forEach(function(a) {
+    var col = priorityColors[a.priority] || 'var(--accent)';
+    var lbl = priorityLabels[a.priority] || '&#128203; GENERAL';
+    html += '<div class="ann-card ' + (a.priority||'general') + '">'
+      + '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;flex-wrap:wrap;gap:6px;">'
+      + '<span style="font-size:10px;font-weight:700;letter-spacing:1px;color:' + col + '">' + lbl + '</span>'
+      + '<div style="display:flex;align-items:center;gap:6px;">'
+      + (a.expiresAt ? '<span style="font-size:10px;color:var(--text2)">Expires: ' + fmtDate(a.expiresAt) + '</span>' : '')
+      + '<button class="btn btn-a btn-sm" data-id="' + a.id + '" onclick="openEditAnn(this.dataset.id)">&#9998; Edit</button>'
+      + '<button class="btn btn-d btn-sm" data-id="' + a.id + '" onclick="deleteAnn(this.dataset.id)">&#128465;</button>'
+      + '</div></div>'
+      + '<div class="ann-body-text">' + a.body + '</div>'
+      + '<div class="ann-meta">Posted: ' + fmtDate(a.createdAt) + (a.postedBy ? ' · by ' + a.postedBy : '') + '</div>'
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+async function postAnnouncement() {
+  var body = document.getElementById('annBody').value.trim();
+  var priority = document.getElementById('annPriority').value;
+  var expiry = document.getElementById('annExpiry').value;
+  if (!body) { toast('Write an announcement message first'); return; }
+  try {
+    var doc = { body: body, priority: priority, active: true, createdAt: new Date().toISOString(), postedBy: session.username, vesselId: session.vesselId };
+    if (expiry) doc.expiresAt = new Date(expiry).toISOString();
+    var ref = await _fs.collection('vboard/' + session.vesselId + '/announcements').add(doc);
+    doc.id = ref.id;
+    appData.announcements.unshift(doc);
+    renderAnnouncements();
+    document.getElementById('annBody').value = '';
+    document.getElementById('annExpiry').value = '';
+    document.getElementById('ms-ann').textContent = appData.announcements.filter(function(a){return a.active!==false;}).length;
+    toast('Announcement posted to board');
+  } catch(e) { console.error(e); toast('Failed to post announcement'); }
+}
+
+function openEditAnn(id) {
+  var ann = appData.announcements.find(function(a) { return a.id === id; });
+  if (!ann) return;
+  document.getElementById('editAnnId').value = id;
+  document.getElementById('editAnnBody').value = ann.body || '';
+  document.getElementById('editAnnPriority').value = ann.priority || 'general';
+  document.getElementById('editAnnExpiry').value = ann.expiresAt ? ann.expiresAt.slice(0,16) : '';
+  document.getElementById('editAnnModal').classList.add('open');
+}
+
+async function saveEditAnn() {
+  var id = document.getElementById('editAnnId').value;
+  var body = document.getElementById('editAnnBody').value.trim();
+  var priority = document.getElementById('editAnnPriority').value;
+  var expiry = document.getElementById('editAnnExpiry').value;
+  if (!body) { toast('Message cannot be empty'); return; }
+  try {
+    var update = { body: body, priority: priority, updatedAt: new Date().toISOString() };
+    if (expiry) update.expiresAt = new Date(expiry).toISOString(); else update.expiresAt = null;
+    await _fs.collection('vboard/' + session.vesselId + '/announcements').doc(id).update(update);
+    appData.announcements = appData.announcements.map(function(a) {
+      return a.id === id ? Object.assign({}, a, update) : a;
+    });
+    renderAnnouncements();
+    closeModal('editAnnModal');
+    toast('Announcement updated');
+  } catch(e) { console.error(e); toast('Failed to update'); }
+}
+
+async function deleteAnn(id) {
+  if (!confirm('Delete this announcement from the board?')) return;
+  try {
+    await _fs.collection('vboard/' + session.vesselId + '/announcements').doc(id).update({ active: false });
+    appData.announcements = appData.announcements.map(function(a) { return a.id === id ? Object.assign({}, a, {active:false}) : a; });
+    renderAnnouncements();
+    document.getElementById('ms-ann').textContent = appData.announcements.filter(function(a){return a.active!==false;}).length;
+    toast('Announcement removed from board');
+  } catch(e) { toast('Failed to delete'); }
+}
+
+// ============================================================
+// BOARDS
+// ============================================================
+function loadBoards() {
+  document.getElementById('boardsList').innerHTML = '<div class="loading">&#9729;&#65039; Loading...</div>';
+  _fs.collection('vboard/' + session.vesselId + '/boards').orderBy('createdAt','desc').get()
+    .then(function(snap) {
+      appData.boards = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      renderBoards();
+      document.getElementById('ms-boards').textContent = appData.boards.filter(function(b){return b.active;}).length;
+    }).catch(function(e) { console.error(e); document.getElementById('boardsList').innerHTML = '<div class="empty">Failed to load</div>'; });
+}
+
+function renderBoards() {
+  var el = document.getElementById('boardsList');
+  if (!appData.boards.length) { el.innerHTML = '<div class="empty">No boards yet. Create one to get the access code for your messroom TV.</div>'; return; }
+  var html = '';
+  appData.boards.forEach(function(b) {
+    html += '<div class="board-row">'
+      + '<div style="flex:1;min-width:120px;">'
+      + '<div style="font-weight:700;font-size:14px;margin-bottom:3px;">&#128250; ' + b.name + '</div>'
+      + (b.location ? '<div style="font-size:11px;color:var(--text2);">&#128205; ' + b.location + '</div>' : '')
+      + '<div style="margin-top:5px;font-size:11px;color:var(--text2);">Created: ' + fmtDate(b.createdAt) + '</div>'
+      + '</div>'
+      + '<div style="text-align:center;flex-shrink:0;">'
+      + '<span class="code-badge" style="display:block;margin-bottom:5px;">' + b.id + '</span>'
+      + '<span class="pill ' + (b.active ? 'active' : 'revoked') + '">' + (b.active ? 'Active' : 'Revoked') + '</span>'
+      + '</div>'
+      + '<div style="display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0;">'
+      + '<button class="btn btn-s btn-sm" data-bid="' + b.id + '" onclick="showBoardCode(this.dataset.bid)">&#128273; Show Code</button>'
+      + (b.active
+        ? '<button class="btn btn-d btn-sm" data-bid="' + b.id + '" onclick="revokeBoard(this.dataset.bid)">Revoke</button>'
+        : '<button class="btn btn-a btn-sm" data-bid="' + b.id + '" onclick="restoreBoard(this.dataset.bid)">Restore</button>')
+      + '</div>'
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function openCreateBoardModal() {
+  document.getElementById('boardName').value = '';
+  document.getElementById('boardLocation').value = '';
+  document.getElementById('createBoardModal').classList.add('open');
+}
+
+async function createBoard() {
+  var name = document.getElementById('boardName').value.trim();
+  var loc = document.getElementById('boardLocation').value.trim();
+  if (!name) { toast('Board name required'); return; }
+  var code = genCode('BRD', session.vesselId);
+  try {
+    await _fs.collection('vboard/' + session.vesselId + '/boards').doc(code).set({
+      name: name, location: loc, active: true,
+      createdAt: new Date().toISOString(), createdBy: session.username
+    });
+    closeModal('createBoardModal');
+    document.getElementById('genBoardCode').textContent = code;
+    document.getElementById('boardUrl').textContent = 'vesselboard.app/display/' + session.vesselId;
+    document.getElementById('boardCodeModal').classList.add('open');
+    toast('Board created: ' + name);
+    loadBoards();
+  } catch(e) { console.error(e); toast('Failed to create board'); }
+}
+
+function showBoardCode(boardId) {
+  document.getElementById('genBoardCode').textContent = boardId;
+  document.getElementById('boardUrl').textContent = 'vesselboard.app/display/' + session.vesselId;
+  document.getElementById('boardCodeModal').classList.add('open');
+}
+
+async function revokeBoard(boardId) {
+  if (!confirm('Revoke this board? The display screen will go offline immediately.')) return;
+  try {
+    await _fs.collection('vboard/' + session.vesselId + '/boards').doc(boardId).update({ active: false });
+    toast('Board revoked — screen is now offline');
+    loadBoards();
+  } catch(e) { toast('Failed to revoke'); }
+}
+
+async function restoreBoard(boardId) {
+  var newCode = genCode('BRD', session.vesselId);
+  var oldBoard = appData.boards.find(function(b) { return b.id === boardId; });
+  if (!confirm('Restore "' + (oldBoard ? oldBoard.name : boardId) + '"? A new access code will be generated.')) return;
+  try {
+    await _fs.collection('vboard/' + session.vesselId + '/boards').doc(boardId).update({ active: false });
+    await _fs.collection('vboard/' + session.vesselId + '/boards').doc(newCode).set({
+      name: oldBoard ? oldBoard.name : 'Restored Board',
+      location: oldBoard ? (oldBoard.location||'') : '',
+      active: true, createdAt: new Date().toISOString(), createdBy: session.username
+    });
+    document.getElementById('genBoardCode').textContent = newCode;
+    document.getElementById('boardUrl').textContent = 'vesselboard.app/display/' + session.vesselId;
+    document.getElementById('boardCodeModal').classList.add('open');
+    toast('Board restored with new code');
+    loadBoards();
+  } catch(e) { toast('Failed to restore'); }
+}
+
+// ============================================================
+// SUBMISSIONS
+// ============================================================
+function loadSubmissions() {
+  document.getElementById('subList').innerHTML = '<div class="loading">&#9729;&#65039; Loading...</div>';
+  _fs.collection('vboard/' + session.vesselId + '/submissions').orderBy('submittedAt','desc').get()
+    .then(function(snap) {
+      appData.submissions = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      renderSubmissions();
+      var pending = appData.submissions.filter(function(s){return s.status==='pending';}).length;
+      document.getElementById('ms-pending').textContent = pending;
+      var badge = document.getElementById('subBadge');
+      if (pending > 0) { badge.textContent = pending; badge.style.display = 'inline-flex'; } else { badge.style.display = 'none'; }
+    }).catch(function(e) { console.error(e); document.getElementById('subList').innerHTML = '<div class="empty">Failed to load</div>'; });
+}
+
+function renderSubmissions() {
+  var el = document.getElementById('subList');
+  if (!appData.submissions.length) {
+    el.innerHTML = '<div class="empty">No submissions yet. Share the QR code with your crew to start receiving photos.</div>';
+    return;
+  }
+  var html = '';
+  appData.submissions.forEach(function(s) {
+    var isPending = s.status === 'pending';
+
+    // Prefer full-res Storage URLs, fall back to base64 thumbnails
+    var storageUrls = (s.photoUrls   || []).filter(function(u) { return u && u.length > 0; });
+    var thumbUrls   = (s.thumbnails  || []).filter(function(u) { return u && u.length > 0; });
+    var viewUrls    = storageUrls.length > 0 ? storageUrls : thumbUrls;
+    var hasPhotos   = viewUrls.length > 0;
+    var isThumbOnly = hasPhotos && storageUrls.length === 0;
+
+    // Build photo thumbnails row
+    var thumbsHtml = '';
+    if (hasPhotos) {
+      thumbsHtml = '<div class="sub-photos-row">';
+      viewUrls.forEach(function(url, i) {
+        thumbsHtml += '<div class="sub-photo-thumb" onclick="openPhotoViewer(\'' + s.id + '\',' + i + ')">'
+          + '<img src="' + url + '" alt="Photo ' + (i+1) + '" '
+          + 'onerror="this.parentElement.innerHTML=\'<div style=&quot;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:22px;&quot;>🖼️</div>\'">'
+          + '<div class="zoom-hint">&#128269;</div>'
+          + '</div>';
+      });
+      thumbsHtml += '<span class="photo-count-chip">'
+        + viewUrls.length + ' photo' + (viewUrls.length > 1 ? 's' : '')
+        + (isThumbOnly ? ' · preview only' : '')
+        + ' — tap to view</span>';
+      thumbsHtml += '</div>';
+    } else {
+      // No photos at all (old submissions before thumbnail fix)
+      var count = s.photoCount || 1;
+      thumbsHtml = '<div class="sub-photos-row">';
+      for (var i = 0; i < count; i++) {
+        thumbsHtml += '<div class="sub-photo-placeholder">' + (s.emoji || '📷') + '</div>';
+      }
+      thumbsHtml += '<span style="font-size:11px;color:var(--text2);align-self:center;">'
+        + count + ' photo' + (count > 1 ? 's' : '') + ' submitted<br/>'
+        + '<span style="font-size:10px;color:var(--text3);">Re-submit to preview</span></span>';
+      thumbsHtml += '</div>';
+    }
+
+    html += '<div class="sub-card" id="sub-' + s.id + '">'
+      + '<div style="flex:1;min-width:0;">'
+
+      // Header row: sender + status
+      + '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap;">'
+      + '<span style="font-weight:700;font-size:15px;color:var(--text);">' + (s.senderName || 'Unknown') + '</span>'
+      + '<span class="pill ' + (s.status||'pending') + '">' + (s.status||'pending') + '</span>'
+      + '</div>'
+
+      // Remarks
+      + (s.remarks ? '<div style="font-size:13px;color:var(--text2);font-style:italic;margin-bottom:4px;">"' + s.remarks + '"</div>' : '')
+
+      // Timestamp
+      + '<div style="font-size:10px;color:var(--text2);font-family:monospace;margin-bottom:2px;">'
+      + (s.submittedAt ? new Date(s.submittedAt).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '—')
+      + '</div>'
+
+      // Photo thumbnails
+      + thumbsHtml
+
+      // Action buttons
+      + (isPending
+        ? '<div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap;">'
+            + '<button class="btn btn-p btn-sm" data-id="' + s.id + '" onclick="approveSubmission(this.dataset.id)">&#9989; Approve to Carousel</button>'
+            + '<button class="btn btn-d btn-sm" data-id="' + s.id + '" onclick="rejectSubmission(this.dataset.id)">&#10060; Reject</button>'
+            + '<button class="btn btn-w btn-sm" data-id="' + s.id + '" onclick="deleteSubmission(this.dataset.id)">&#128465; Delete</button>'
+            + '</div>'
+        : '<div style="display:flex;align-items:center;gap:8px;margin-top:4px;flex-wrap:wrap;">'
+            + '<span style="font-size:11px;color:var(--text2);">'
+            + (s.status === 'approved' ? '&#9989; Approved by ' : '&#10060; Rejected by ')
+            + (s.reviewedBy || 'Admin')
+            + (s.reviewedAt ? ' · ' + new Date(s.reviewedAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '')
+            + '</span>'
+            + '<button class="btn btn-d btn-sm" data-id="' + s.id + '" onclick="deleteSubmission(this.dataset.id)">&#128465; Delete</button>'
+            + '</div>')
+
+      + '</div></div>';
+  });
+  el.innerHTML = html;
+}
+
+async function approveSubmission(id) {
+  try {
+    await _fs.collection('vboard/' + session.vesselId + '/submissions').doc(id).update({ status: 'approved', reviewedAt: new Date().toISOString(), reviewedBy: session.username });
+    appData.submissions = appData.submissions.map(function(s) { return s.id===id ? Object.assign({},s,{status:'approved'}) : s; });
+    renderSubmissions();
+    updatePendingBadge();
+    toast('Photo approved — added to carousel queue');
+  } catch(e) { toast('Failed to approve'); }
+}
+
+async function rejectSubmission(id) {
+  if (!confirm('Reject this submission? Photos will be permanently deleted from storage.')) return;
+  var sub = appData.submissions.find(function(s){ return s.id === id; });
+  try {
+    // Delete photos from Storage first
+    if (sub) await deletePhotosFromStorage(sub);
+    // Update Firestore status
+    await _fs.collection('vboard/' + session.vesselId + '/submissions').doc(id).update({
+      status: 'rejected', reviewedAt: new Date().toISOString(), reviewedBy: session.username,
+      photoUrls: [], thumbnails: [] // clear URLs since Storage is deleted
+    });
+    appData.submissions = appData.submissions.map(function(s) { return s.id===id ? Object.assign({},s,{status:'rejected',photoUrls:[],thumbnails:[]}) : s; });
+    renderSubmissions();
+    updatePendingBadge();
+    toast('Submission rejected and photos deleted');
+  } catch(e) { console.error(e); toast('Failed to reject'); }
+}
+
+async function deleteSubmission(id) {
+  if (!confirm('Permanently delete this submission and all its photos? This cannot be undone.')) return;
+  var sub = appData.submissions.find(function(s){ return s.id === id; });
+  try {
+    if (sub) await deletePhotosFromStorage(sub);
+    await _fs.collection('vboard/' + session.vesselId + '/submissions').doc(id).delete();
+    appData.submissions = appData.submissions.filter(function(s){ return s.id !== id; });
+    renderSubmissions();
+    updatePendingBadge();
+    toast('Submission permanently deleted');
+  } catch(e) { console.error(e); toast('Failed to delete submission'); }
+}
+
+async function deletePhotosFromStorage(sub) {
+  var urls = (sub.photoUrls || []).filter(function(u){ return u && u.length > 0 && u.startsWith('https://'); });
+  for (var i = 0; i < urls.length; i++) {
+    try {
+      var ref = _storage.refFromURL(urls[i]);
+      await ref.delete();
+    } catch(e) {
+      // Ignore — photo may already be deleted or URL may be invalid
+      console.warn('Could not delete photo from storage:', e.code);
+    }
+  }
+}
+
+function updatePendingBadge() {
+  var pending = appData.submissions.filter(function(s){ return s.status === 'pending'; }).length;
+  document.getElementById('ms-pending').textContent = pending;
+  var badge = document.getElementById('subBadge');
+  if (pending > 0) { badge.textContent = pending; badge.style.display = 'inline-flex'; }
+  else { badge.style.display = 'none'; }
+}
+
+// ============================================================
+// AUTO CLEANUP — Delete submissions older than 30 days
+// Runs silently in background on every login
+// ============================================================
+async function runAutoCleanup() {
+  try {
+    var cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 30);
+    var cutoffISO = cutoff.toISOString();
+    var snap = await _fs.collection('vboard/' + session.vesselId + '/submissions')
+      .where('submittedAt', '<', cutoffISO).get();
+    if (snap.empty) return;
+    var deleted = 0;
+    for (var i = 0; i < snap.docs.length; i++) {
+      var sub = Object.assign({ id: snap.docs[i].id }, snap.docs[i].data());
+      try {
+        await deletePhotosFromStorage(sub);
+        await _fs.collection('vboard/' + session.vesselId + '/submissions').doc(sub.id).delete();
+        deleted++;
+      } catch(e) { console.warn('Auto-cleanup failed for', sub.id, e); }
+    }
+    if (deleted > 0) {
+      console.log('Auto-cleanup: deleted ' + deleted + ' submission(s) older than 30 days');
+      // Refresh submissions list if visible
+      loadSubmissions();
+    }
+  } catch(e) { console.warn('Auto-cleanup error:', e); }
+}
+
+// ============================================================
+// CAROUSEL MANAGER
+// ============================================================
+function loadCarouselConfig() {
+  _fs.collection('vboard/' + session.vesselId + '/settings').doc('carouselConfig').get()
+    .then(function(doc) {
+      if (doc.exists) {
+        carouselConfig.order    = doc.data().order    || [];
+        carouselConfig.disabled = doc.data().disabled || [];
+      }
+    }).catch(function(){});
+}
+
+function loadCarousel() {
+  document.getElementById('carouselManagerList').innerHTML = '<div class="loading">&#9729;&#65039; Loading approved photos...</div>';
+  _fs.collection('vboard/' + session.vesselId + '/submissions')
+    .orderBy('submittedAt', 'desc').get()
+    .then(function(snap) {
+      // Only approved submissions, not older than 30 days
+      var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+      appData.carousel = snap.docs
+        .map(function(d){ return Object.assign({id:d.id}, d.data()); })
+        .filter(function(s){
+          return s.status === 'approved' && new Date(s.submittedAt) > cutoff;
+        });
+      renderCarouselManager();
+    }).catch(function(e){ console.error(e); document.getElementById('carouselManagerList').innerHTML = '<div class="empty">Failed to load</div>'; });
+}
+
+function renderCarouselManager() {
+  var el = document.getElementById('carouselManagerList');
+
+  // Flatten all approved submissions into individual photo items
+  var allPhotos = [];
+  appData.carousel.forEach(function(sub) {
+    var storageUrls = (sub.photoUrls  || []).filter(function(u){ return u && u.length > 0; });
+    var thumbUrls   = (sub.thumbnails || []).filter(function(u){ return u && u.length > 0; });
+    var urls        = storageUrls.length > 0 ? storageUrls : thumbUrls;
+    var count       = Math.max(urls.length, sub.photoCount || 1);
+    for (var i = 0; i < count; i++) {
+      allPhotos.push({
+        key:       sub.id + '_' + i,
+        subId:     sub.id,
+        photoIdx:  i,
+        url:       urls[i] || null,
+        sender:    sub.senderName || 'Unknown',
+        remarks:   sub.remarks || '',
+        submittedAt: sub.submittedAt,
+        emoji:     sub.emoji || '📷'
+      });
+    }
+  });
+
+  // Sort by saved order first, then append new ones
+  var ordered = [];
+  carouselConfig.order.forEach(function(key) {
+    var photo = allPhotos.find(function(p){ return p.key === key; });
+    if (photo) ordered.push(photo);
+  });
+  allPhotos.forEach(function(p) {
+    if (!ordered.find(function(o){ return o.key === p.key; })) ordered.push(p);
+  });
+
+  // Update stats
+  var onCount  = ordered.filter(function(p){ return !carouselConfig.disabled.includes(p.key); }).length;
+  var offCount = ordered.filter(function(p){ return  carouselConfig.disabled.includes(p.key); }).length;
+  document.getElementById('car-count-on').textContent    = onCount;
+  document.getElementById('car-count-off').textContent   = offCount;
+  document.getElementById('car-count-total').textContent = ordered.length;
+
+  if (!ordered.length) {
+    el.innerHTML = '<div class="empty">No approved photos yet. Approve submissions from the Submissions tab.</div>';
+    return;
+  }
+
+  var html = '<div class="car-mgr-grid">';
+  ordered.forEach(function(p, idx) {
+    var isDisabled = carouselConfig.disabled.includes(p.key);
+    var expiresIn  = Math.ceil((new Date(p.submittedAt).getTime() + 30*24*60*60*1000 - Date.now()) / 86400000);
+    var expiryHtml = expiresIn <= 5 ? '<div class="car-mgr-expiry">⚠️ Expires in ' + expiresIn + 'd</div>' : '';
+    var thumbHtml  = p.url
+      ? '<img class="car-mgr-thumb" src="' + p.url + '" onerror="this.style.display=\'none\'">'
+      : '<div class="car-mgr-thumb-empty">' + p.emoji + '</div>';
+
+    html += '<div class="car-mgr-item ' + (isDisabled ? 'disabled' : 'enabled') + '" id="cmi-' + p.key + '">'
+      + '<div class="car-mgr-order">#' + (idx + 1) + '</div>'
+      + '<button class="car-mgr-toggle ' + (isDisabled ? 'off' : 'on') + '" '
+        + 'data-key="' + p.key + '" onclick="toggleCarouselPhoto(this.dataset.key)">'
+        + (isDisabled ? 'Hidden' : 'Showing') + '</button>'
+      + thumbHtml
+      + '<div class="car-mgr-body">'
+      + '<div class="car-mgr-sender">' + p.sender + '</div>'
+      + (p.remarks ? '<div class="car-mgr-meta">"' + p.remarks.substring(0,30) + (p.remarks.length>30?'…':'') + '"</div>' : '<div class="car-mgr-meta">Photo ' + (p.photoIdx+1) + '</div>')
+      + expiryHtml
+      + '<div class="car-mgr-actions">'
+      + '<button class="btn btn-s btn-sm" title="Move Up" data-key="' + p.key + '" onclick="moveCarouselPhoto(this.dataset.key,-1)" ' + (idx===0?'disabled':'') + '>&#9650;</button>'
+      + '<button class="btn btn-s btn-sm" title="Move Down" data-key="' + p.key + '" onclick="moveCarouselPhoto(this.dataset.key,1)" ' + (idx===ordered.length-1?'disabled':'') + '>&#9660;</button>'
+      + '<button class="btn btn-d btn-sm" title="Delete" data-subid="' + p.subId + '" onclick="deleteSubmission(this.dataset.subid)">&#128465;</button>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+function toggleCarouselPhoto(key) {
+  var idx = carouselConfig.disabled.indexOf(key);
+  if (idx > -1) carouselConfig.disabled.splice(idx, 1);
+  else carouselConfig.disabled.push(key);
+  saveCarouselConfig();
+  renderCarouselManager();
+}
+
+function moveCarouselPhoto(key, dir) {
+  // Build current ordered list
+  var allPhotos = [];
+  appData.carousel.forEach(function(sub) {
+    var urls = ((sub.photoUrls||[]).filter(function(u){return u&&u.length>0;}));
+    if (!urls.length) urls = (sub.thumbnails||[]).filter(function(u){return u&&u.length>0;});
+    var count = Math.max(urls.length, sub.photoCount||1);
+    for (var i=0; i<count; i++) allPhotos.push(sub.id+'_'+i);
+  });
+  var ordered = [];
+  carouselConfig.order.forEach(function(k){ if (allPhotos.includes(k)) ordered.push(k); });
+  allPhotos.forEach(function(k){ if (!ordered.includes(k)) ordered.push(k); });
+
+  var pos = ordered.indexOf(key);
+  if (pos === -1) return;
+  var newPos = pos + dir;
+  if (newPos < 0 || newPos >= ordered.length) return;
+  ordered.splice(pos, 1);
+  ordered.splice(newPos, 0, key);
+  carouselConfig.order = ordered;
+  saveCarouselConfig();
+  renderCarouselManager();
+}
+
+async function saveCarouselConfig() {
+  try {
+    await _fs.collection('vboard/' + session.vesselId + '/settings').doc('carouselConfig').set({
+      order:    carouselConfig.order,
+      disabled: carouselConfig.disabled,
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
+  } catch(e) { console.error('Failed to save carousel config:', e); }
+}
+function loadBirthdays() {
+  document.getElementById('bdayList').innerHTML = '<div class="loading">&#9729;&#65039; Loading...</div>';
+  _fs.collection('vboard/' + session.vesselId + '/birthdays').get()
+    .then(function(snap) {
+      appData.birthdays = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      appData.birthdays.sort(function(a,b) { return daysUntilBday(a.date) - daysUntilBday(b.date); });
+      renderBirthdays();
+      document.getElementById('ms-bdays').textContent = appData.birthdays.length;
+    }).catch(function(e) { console.error(e); document.getElementById('bdayList').innerHTML = '<div class="empty">Failed to load</div>'; });
+}
+
+function renderBirthdays() {
+  var el = document.getElementById('bdayList');
+  if (!appData.birthdays.length) { el.innerHTML = '<div class="empty">No crew birthdays added yet.</div>'; return; }
+  var html = '<div class="card">';
+  appData.birthdays.forEach(function(b) {
+    var dateLabel = b.date ? new Date(b.date+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '—';
+    var days = daysUntilBday(b.date);
+    var statusHtml = days === 0
+      ? '<span class="pill active">&#127874; TODAY!</span>'
+      : days <= 7
+      ? '<span class="pill important">in ' + days + ' days</span>'
+      : '<span style="font-size:11px;color:var(--text2);">' + days + ' days</span>';
+    html += '<div class="bday-row">'
+      + '<div>'
+      + '<span style="font-weight:700;font-size:14px;">' + b.name + '</span>'
+      + (b.rank ? '<span style="font-size:11px;color:var(--text2);margin-left:8px;">· ' + b.rank + '</span>' : '')
+      + '</div>'
+      + '<div style="display:flex;align-items:center;gap:10px;">'
+      + '<span style="font-family:monospace;font-size:13px;color:var(--teal);">' + dateLabel + '</span>'
+      + statusHtml
+      + '<button class="btn btn-d btn-sm" data-id="' + b.id + '" onclick="deleteBirthday(this.dataset.id)">&#128465;</button>'
+      + '</div>'
+      + '</div>';
+  });
+  html += '</div>';
+  el.innerHTML = html;
+}
+
+async function addBirthday() {
+  var name = document.getElementById('bdayName').value.trim();
+  var rank = document.getElementById('bdayRank').value.trim();
+  var date = document.getElementById('bdayDate').value;
+  if (!name || !date) { toast('Name and birthday date are required'); return; }
+  try {
+    var ref = await _fs.collection('vboard/' + session.vesselId + '/birthdays').add({ name:name, rank:rank, date:date, createdAt:new Date().toISOString() });
+    appData.birthdays.push({ id:ref.id, name:name, rank:rank, date:date });
+    appData.birthdays.sort(function(a,b){ return daysUntilBday(a.date)-daysUntilBday(b.date); });
+    renderBirthdays();
+    document.getElementById('ms-bdays').textContent = appData.birthdays.length;
+    ['bdayName','bdayRank','bdayDate'].forEach(function(id){ document.getElementById(id).value=''; });
+    toast('Birthday added: ' + name);
+  } catch(e) { console.error(e); toast('Failed to add birthday'); }
+}
+
+async function deleteBirthday(id) {
+  if (!confirm('Remove this birthday from the list?')) return;
+  try {
+    await _fs.collection('vboard/' + session.vesselId + '/birthdays').doc(id).delete();
+    appData.birthdays = appData.birthdays.filter(function(b){ return b.id !== id; });
+    renderBirthdays();
+    document.getElementById('ms-bdays').textContent = appData.birthdays.length;
+    toast('Birthday removed');
+  } catch(e) { toast('Failed to remove'); }
+}
+
+// ============================================================
+// SETTINGS
+// ============================================================
+function loadSettings() {
+  _fs.collection('vboard/' + session.vesselId + '/settings').doc('main').get()
+    .then(function(doc) {
+      if (!doc.exists) return;
+      var d = doc.data();
+      settings = Object.assign(settings, d);
+      applySettingsToUI();
+    }).catch(function(){});
+}
+
+function applySettingsToUI() {
+  // Timezone
+  var tzSel = document.getElementById('setTimezone');
+  if (tzSel) tzSel.value = settings.timezone || 'UTC+8';
+  // QR toggle
+  setToggleState('qr', !!settings.showQR);
+  // Watch toggle
+  setToggleState('watch', settings.watchVisible !== false);
+  // Meal toggle
+  setToggleState('meal', settings.mealVisible !== false);
+  // Carousel speed
+  var spd = parseInt(settings.carouselSpeed) || 5;
+  document.getElementById('carouselSpeed').value = spd;
+  document.getElementById('carouselSpeedVal').textContent = spd + 's';
+  // Theme
+  if (settings.theme && THEMES[settings.theme]) {
+    selectTheme(settings.theme);
+  }
+  // Font size
+  var fs = document.getElementById('setFontSize');
+  if (fs && settings.fontSize) fs.value = settings.fontSize;
+  // Ann color
+  var ac = document.getElementById('setAnnColor');
+  if (ac && settings.annColor) ac.value = settings.annColor;
+  // Update preview
+  updateAnnPreview();
+  // Auto refresh
+  setToggleState('refresh', !!settings.autoRefresh);
+  var rm = document.getElementById('setRefreshMins');
+  if (rm && settings.refreshMins) rm.value = settings.refreshMins;
+  // Position & Weather
+  var latEl = document.getElementById('setLat');
+  var lonEl = document.getElementById('setLon');
+  if (latEl && settings.lat) latEl.value = settings.lat;
+  if (lonEl && settings.lon) lonEl.value = settings.lon;
+  if (settings.lat && settings.lon) updateCoordPreview();
+  setToggleState('weather', !!settings.showWeather);
+  setToggleState('posmap', !!settings.showPosMap);
+  // Next port
+  var np = document.getElementById('setNextPort');
+  if (np) np.value = settings.nextPort || '';
+  var npe = document.getElementById('setNextPortEta');
+  if (npe && settings.nextPortEta) npe.value = settings.nextPortEta;
+  // Ticker
+  setToggleState('ticker', !!settings.tickerVisible);
+  var tm = document.getElementById('setTickerMessages');
+  if (tm && settings.tickerMessages) tm.value = settings.tickerMessages.join('\n');
+  // Widget styles (per widget)
+  if (settings.widgetStyles) {
+    var wKeys = ['watch','meal','weather','nextport','birthday','qrlabel'];
+    wKeys.forEach(function(k) {
+      var ws = settings.widgetStyles[k];
+      if (!ws) return;
+      var sEl = document.getElementById('wgt-size-'  + k);
+      var cEl = document.getElementById('wgt-color-' + k);
+      if (sEl && ws.size)  sEl.value = ws.size;
+      if (cEl && ws.color) cEl.value = ws.color;
+      updateWidgetPreview(k);
+    });
+  }
+  // Watch schedule
+  if (settings.watchSchedule && settings.watchSchedule.length) {
+    var wr = document.getElementById('watchRows');
+    wr.innerHTML = '';
+    settings.watchSchedule.forEach(function(w) {
+      addWatchRowWithValues(w.time, w.officer);
+    });
+  }
+  // Meal times
+  if (settings.mealTimes && settings.mealTimes.length) {
+    var mr = document.getElementById('mealRows');
+    mr.innerHTML = '';
+    settings.mealTimes.forEach(function(m) {
+      addMealRowWithValues(m.meal, m.time);
+    });
+  }
+}
+
+function setToggleState(key, isOn) {
+  var track = document.getElementById('toggle-' + key);
+  var lbl = document.getElementById('lbl-' + key);
+  if (!track) return;
+  if (isOn) { track.classList.add('on'); if (lbl) lbl.textContent = 'On'; }
+  else { track.classList.remove('on'); if (lbl) lbl.textContent = 'Off'; }
+}
+
+function toggleSetting(key) {
+  var track = document.getElementById('toggle-' + key);
+  var lbl = document.getElementById('lbl-' + key);
+  var isOn = track.classList.toggle('on');
+  if (lbl) lbl.textContent = isOn ? 'On' : 'Off';
+}
+
+async function saveSettings() {
+  var btn = event.target || document.activeElement;
+  if (btn) { btn.disabled = true; btn.textContent = '&#9729;&#65039; Saving...'; }
+  try {
+    // Collect watch schedule
+    var watchRows = document.getElementById('watchRows').querySelectorAll('.sched-row');
+    var watchSchedule = [];
+    watchRows.forEach(function(row) {
+      var inputs = row.querySelectorAll('input');
+      if (inputs[0] && inputs[1]) {
+        var t = inputs[0].value.trim();
+        var o = inputs[1].value.trim();
+        if (t && o) watchSchedule.push({ time: t, officer: o });
+      }
+    });
+    // Collect meal times
+    var mealRows = document.getElementById('mealRows').querySelectorAll('.sched-row');
+    var mealTimes = [];
+    mealRows.forEach(function(row) {
+      var inputs = row.querySelectorAll('input');
+      if (inputs[0] && inputs[1]) {
+        var m = inputs[0].value.trim();
+        var t2 = inputs[1].value.trim();
+        if (m && t2) mealTimes.push({ meal: m, time: t2 });
+      }
+    });
+    // Collect ticker messages
+    var tickerRaw = (document.getElementById('setTickerMessages') || {value:''}).value || '';
+    var tickerMessages = tickerRaw.split('\n').map(function(l){return l.trim();}).filter(function(l){return l.length > 0;});
+
+    // Collect widget styles
+    var widgetKeys = ['watch','meal','weather','nextport','birthday','qrlabel'];
+    var widgetStyles = {};
+    widgetKeys.forEach(function(k) {
+      var sizeEl  = document.getElementById('wgt-size-'  + k);
+      var colorEl = document.getElementById('wgt-color-' + k);
+      widgetStyles[k] = {
+        size:  sizeEl  ? sizeEl.value  : 'normal',
+        color: colorEl ? colorEl.value : 'default'
+      };
+    });
+
+    var data = {
+      timezone: document.getElementById('setTimezone').value,
+      showQR: document.getElementById('toggle-qr').classList.contains('on'),
+      watchVisible: document.getElementById('toggle-watch').classList.contains('on'),
+      mealVisible: document.getElementById('toggle-meal').classList.contains('on'),
+      carouselSpeed: parseInt(document.getElementById('carouselSpeed').value) || 5,
+      theme: currentTheme,
+      fontSize: document.getElementById('setFontSize').value,
+      annColor: document.getElementById('setAnnColor').value,
+      autoRefresh: document.getElementById('toggle-refresh').classList.contains('on'),
+      refreshMins: parseInt(document.getElementById('setRefreshMins').value) || 10,
+      lat: parseFloat(document.getElementById('setLat').value) || null,
+      lon: parseFloat(document.getElementById('setLon').value) || null,
+      showWeather: document.getElementById('toggle-weather').classList.contains('on'),
+      showPosMap: document.getElementById('toggle-posmap').classList.contains('on'),
+      nextPort: (document.getElementById('setNextPort') || {value:''}).value.trim(),
+      nextPortEta: (document.getElementById('setNextPortEta') || {value:''}).value,
+      tickerVisible: document.getElementById('toggle-ticker').classList.contains('on'),
+      tickerMessages: tickerMessages,
+      widgetStyles: widgetStyles,
+      watchSchedule: watchSchedule,
+      mealTimes: mealTimes,
+      updatedAt: new Date().toISOString(),
+      updatedBy: session.username
+    };
+    await _fs.collection('vboard/' + session.vesselId + '/settings').doc('main').set(data, { merge: true });
+    settings = Object.assign(settings, data);
+    toast('Settings saved to board');
+  } catch(e) { console.error(e); toast('Failed to save settings'); }
+  if (btn) { btn.disabled = false; btn.innerHTML = '&#128190; Save All Settings'; }
+}
+
+function addWatchRow() { addWatchRowWithValues('',''); }
+function addMealRow() { addMealRowWithValues('',''); }
+
+function addWatchRowWithValues(time, officer) {
+  var r = document.getElementById('watchRows');
+  var d = document.createElement('div');
+  d.className = 'sched-row';
+  d.innerHTML = '<input value="' + (time||'') + '" style="max-width:100px;" placeholder="0000–0400"/>'
+    + '<input value="' + (officer||'') + '" style="flex:1;" placeholder="Officer name"/>'
+    + '<button class="del-sched" onclick="this.closest(\'.sched-row\').remove()">&#10005;</button>';
+  r.appendChild(d);
+}
+
+function addMealRowWithValues(meal, time) {
+  var r = document.getElementById('mealRows');
+  var d = document.createElement('div');
+  d.className = 'sched-row';
+  d.innerHTML = '<input value="' + (meal||'') + '" style="max-width:100px;" placeholder="Meal name"/>'
+    + '<input type="time" value="' + (time||'12:00') + '" style="flex:1;"/>'
+    + '<button class="del-sched" onclick="this.closest(\'.sched-row\').remove()">&#10005;</button>';
+  r.appendChild(d);
+}
+
+// ============================================================
+// THEME SELECTOR
+// ============================================================
+var THEMES = {
+  midnight: {
+    name: "Sailor's Midnight",
+    desc: "Board will display dark navy background with cyan accent",
+    dot: '#00d4ff',
+    glow: '#00d4ff66'
+  },
+  cheerful: {
+    name: 'Cheerful Day',
+    desc: 'Board will display light background with warm orange accent',
+    dot: '#e8834a',
+    glow: 'transparent'
+  },
+  ocean: {
+    name: 'Ocean Infinity',
+    desc: 'Board will display deep navy with Armada green accent',
+    dot: '#0fd655',
+    glow: '#0fd65566'
+  }
+};
+
+var currentTheme = 'midnight';
+
+function selectTheme(key) {
+  currentTheme = key;
+  // Update card selected states
+  Object.keys(THEMES).forEach(function(k) {
+    var card = document.getElementById('theme-card-' + k);
+    if (card) card.classList.toggle('selected', k === key);
+  });
+  // Update preview strip
+  var t = THEMES[key];
+  var dot = document.getElementById('themePreviewDot');
+  var name = document.getElementById('themePreviewName');
+  var desc = document.getElementById('themePreviewDesc');
+  if (dot) { dot.style.background = t.dot; dot.style.boxShadow = '0 0 6px ' + t.glow; }
+  if (name) name.textContent = t.name + ' selected';
+  if (desc) desc.textContent = t.desc;
+  toast('Theme set to ' + t.name + ' — save settings to apply');
+}
+
+// ============================================================
+// COORDINATE PREVIEW
+// ============================================================
+function updateCoordPreview() {
+  var lat = parseFloat((document.getElementById('setLat')||{value:''}).value);
+  var lon = parseFloat((document.getElementById('setLon')||{value:''}).value);
+  var el = document.getElementById('coordPreview');
+  if (!el) return;
+  if (isNaN(lat) || isNaN(lon)) { el.style.display='none'; return; }
+  function fmt(d, pos, neg) {
+    var dir = d>=0?pos:neg; d=Math.abs(d);
+    var deg=Math.floor(d), min=Math.floor((d-deg)*60), sec=Math.round(((d-deg)*60-min)*60);
+    return deg+'°'+String(min).padStart(2,'0')+"'"+String(sec).padStart(2,'0')+'"'+dir;
+  }
+  el.textContent = '📍 ' + fmt(lat,'N','S') + ' ' + fmt(lon,'E','W');
+  el.style.display = 'block';
+}
+// Attach coordinate preview listeners after DOM is ready
+document.addEventListener('DOMContentLoaded', function() {
+  ['setLat','setLon'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateCoordPreview);
+  });
+});
+var annColorMap = {
+  default: '', white:'#ffffff', yellow:'#F9E69F',
+  lblue:'#a8d8ff', teal:'#00e5d8', green:'#86efac'
+};
+var annSizeMap = {
+  small:'12px', normal:'14px', large:'17px', xlarge:'21px'
+};
+function updateAnnPreview() {
+  var sizeKey  = (document.getElementById('setFontSize')  || {value:'normal'}).value || 'normal';
+  var colorKey = (document.getElementById('setAnnColor')  || {value:'default'}).value || 'default';
+  var el = document.getElementById('annTextPreview');
+  if (!el) return;
+  el.style.fontSize = annSizeMap[sizeKey] || '14px';
+  el.style.color    = annColorMap[colorKey] || 'var(--text)';
+}
+
+// ============================================================
+// WIDGET TEXT PREVIEW
+// ============================================================
+var wgtSizeMap  = { small:'11px', normal:'13px', large:'15px', xlarge:'18px' };
+var wgtColorMap = { default:'', white:'#ffffff', yellow:'#F9E69F', lblue:'#a8d8ff', teal:'#00e5d8', green:'#86efac' };
+
+function updateWidgetPreview(key) {
+  var sEl = document.getElementById('wgt-size-'  + key);
+  var cEl = document.getElementById('wgt-color-' + key);
+  var pEl = document.getElementById('wgt-prev-'  + key);
+  if (!pEl) return;
+  pEl.style.fontSize = wgtSizeMap[(sEl&&sEl.value)||'normal']  || '13px';
+  pEl.style.color    = wgtColorMap[(cEl&&cEl.value)||'default'] || 'var(--text)';
+}
+function genCode(prefix, vesselId) {
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var seg = '';
+  for (var i = 0; i < 4; i++) seg += chars[Math.floor(Math.random() * chars.length)];
+  return prefix + '-' + vesselId + '-' + seg;
+}
+
+function copyCode(elId) {
+  var txt = document.getElementById(elId) ? document.getElementById(elId).textContent : '';
+  if (!txt || txt === '—') return;
+  navigator.clipboard.writeText(txt).then(function() { toast('Copied: ' + txt); }).catch(function() { toast('Code: ' + txt); });
+}
+
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+
+function daysUntilBday(dateStr) {
+  if (!dateStr) return 999;
+  var parts = dateStr.split('-');
+  var today = new Date();
+  var bday = new Date(today.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]));
+  var diff = Math.round((bday - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  if (diff < 0) diff += 365;
+  return diff;
+}
+
+// ============================================================
+// PHOTO VIEWER
+// ============================================================
+var pvState = { submissionId: null, urls: [], idx: 0 };
+
+function openPhotoViewer(submissionId, startIdx) {
+  var sub = appData.submissions.find(function(s) { return s.id === submissionId; });
+  if (!sub) return;
+
+  // Prefer full-res Storage URLs, fall back to base64 thumbnails
+  var storageUrls = (sub.photoUrls  || []).filter(function(u) { return u && u.length > 0; });
+  var thumbUrls   = (sub.thumbnails || []).filter(function(u) { return u && u.length > 0; });
+  var urls        = storageUrls.length > 0 ? storageUrls : thumbUrls;
+  var isThumbOnly = urls.length > 0 && storageUrls.length === 0;
+
+  pvState.submissionId = submissionId;
+  pvState.urls = urls;
+  pvState.idx  = startIdx || 0;
+
+  document.getElementById('pvSender').textContent = sub.senderName || 'Unknown';
+  document.getElementById('pvRemarks').textContent = sub.remarks ? '"' + sub.remarks + '"' : '';
+
+  // Show a subtle note if showing thumbnails only
+  var counter = document.getElementById('pvCounter');
+  if (isThumbOnly) {
+    counter.innerHTML = '<span style="color:rgba(255,255,255,.4);font-size:10px;">Preview quality · full-res needs Storage</span>';
+  }
+
+  // Action buttons in footer (only if pending)
+  var bar = document.getElementById('pvApproveBar');
+  if (sub.status === 'pending') {
+    bar.innerHTML = '<button class="btn btn-p btn-sm" onclick="approveFromViewer(\'' + submissionId + '\')">'
+      + '&#9989; Approve to Carousel</button>'
+      + '<button class="btn btn-d btn-sm" onclick="rejectFromViewer(\'' + submissionId + '\')">'
+      + '&#10060; Reject</button>';
+  } else {
+    bar.innerHTML = '<span style="font-size:12px;color:rgba(255,255,255,.5);">'
+      + (sub.status === 'approved' ? '✅ Approved' : '❌ Rejected')
+      + (sub.reviewedBy ? ' by ' + sub.reviewedBy : '') + '</span>';
+  }
+
+  pvRender();
+  document.getElementById('photoViewer').classList.add('open');
+  document.addEventListener('keydown', pvKeyHandler);
+}
+
+function pvRender() {
+  var urls = pvState.urls;
+  var idx = pvState.idx;
+  var counter = document.getElementById('pvCounter');
+  var img = document.getElementById('pvImg');
+  var noImg = document.getElementById('pvNoImg');
+  var prev = document.getElementById('pvPrev');
+  var next = document.getElementById('pvNext');
+  var dotsEl = document.getElementById('pvDots');
+
+  counter.textContent = (idx + 1) + ' / ' + (urls.length || 1);
+
+  if (urls.length > 0 && urls[idx]) {
+    img.src = urls[idx];
+    img.style.display = 'block';
+    noImg.style.display = 'none';
+  } else {
+    img.style.display = 'none';
+    noImg.style.display = 'block';
+  }
+
+  // Nav buttons
+  prev.style.display = urls.length > 1 ? 'flex' : 'none';
+  next.style.display = urls.length > 1 ? 'flex' : 'none';
+
+  // Dots
+  dotsEl.innerHTML = '';
+  if (urls.length > 1) {
+    urls.forEach(function(_, i) {
+      var dot = document.createElement('div');
+      dot.className = 'pv-dot' + (i === idx ? ' active' : '');
+      dot.onclick = function() { pvState.idx = i; pvRender(); };
+      dotsEl.appendChild(dot);
+    });
+  }
+}
+
+function pvNav(dir) {
+  var len = pvState.urls.length;
+  if (!len) return;
+  pvState.idx = (pvState.idx + dir + len) % len;
+  pvRender();
+}
+
+function pvKeyHandler(e) {
+  if (e.key === 'ArrowLeft') pvNav(-1);
+  if (e.key === 'ArrowRight') pvNav(1);
+  if (e.key === 'Escape') closePhotoViewer();
+}
+
+function closePhotoViewer() {
+  document.getElementById('photoViewer').classList.remove('open');
+  document.getElementById('pvImg').src = '';
+  document.removeEventListener('keydown', pvKeyHandler);
+}
+
+function approveFromViewer(id) { closePhotoViewer(); approveSubmission(id); }
+function rejectFromViewer(id)  { closePhotoViewer(); rejectSubmission(id);  }
+
+// Close viewer on backdrop click
+document.getElementById('photoViewer').addEventListener('click', function(e) {
+  if (e.target === this) closePhotoViewer();
+});
+function toast(msg) {
+  var el = document.getElementById('toast'); el.textContent = msg;
+  el.classList.add('show'); setTimeout(function() { el.classList.remove('show'); }, 2800);
+}
+
+// Close modals on backdrop click
+['createBoardModal','boardCodeModal','editAnnModal'].forEach(function(id) {
+  var el = document.getElementById(id);
+  if (el) el.addEventListener('click', function(e) { if (e.target === this) closeModal(id); });
+});
+</script>
+</body>
+</html>

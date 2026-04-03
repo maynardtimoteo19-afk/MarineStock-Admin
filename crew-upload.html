@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<title>VesselBoard — Share a Photo</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --navy:#0e1c3d;--green:#0fd655;
+  --bg:#f4f7fb;--surface:#ffffff;
+  --text:#1a2340;--muted:#7a8ba8;
+  --border:#d8e4f0;--danger:#e84040;
+  --safe:#22c55e;--radius:12px;
+}
+html,body{min-height:100%;background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;}
+
+/* ── HEADER ── */
+.app-header{
+  background:var(--navy);padding:16px 20px 14px;
+  display:flex;align-items:center;gap:12px;
+  position:sticky;top:0;z-index:10;
+}
+.header-icon{
+  width:36px;height:36px;border-radius:8px;
+  background:rgba(15,214,85,.15);border:1px solid rgba(15,214,85,.3);
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  flex-shrink:0;
+}
+.header-text{}
+.header-brand{font-size:16px;font-weight:700;color:#ffffff;letter-spacing:.5px;}
+.header-vessel{font-size:11px;color:rgba(255,255,255,.5);margin-top:1px;letter-spacing:.3px;}
+.header-badge{
+  margin-left:auto;font-size:9px;font-weight:700;letter-spacing:1px;
+  background:rgba(15,214,85,.15);color:var(--green);
+  border:1px solid rgba(15,214,85,.3);border-radius:99px;
+  padding:3px 9px;flex-shrink:0;
+}
+
+/* ── CONTENT ── */
+.page-content{padding:20px 16px 40px;max-width:480px;margin:0 auto;}
+
+.page-title{font-size:20px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.page-sub{font-size:13px;color:var(--muted);line-height:1.55;margin-bottom:20px;}
+
+/* ── FORM CARD ── */
+.form-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:14px;}
+.form-card + .form-card{margin-top:-6px;}
+
+/* ── FIELD ── */
+.field{margin-bottom:14px;}
+.field:last-child{margin-bottom:0;}
+.field-label{
+  display:block;font-size:11px;font-weight:700;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;
+}
+.field-input{
+  width:100%;background:var(--bg);border:1.5px solid var(--border);
+  border-radius:8px;padding:12px 14px;font-size:15px;color:var(--text);
+  outline:none;-webkit-appearance:none;transition:border-color .2s;
+  font-family:inherit;
+}
+.field-input:focus{border-color:var(--navy);}
+.field-input::placeholder{color:var(--muted);font-size:14px;}
+textarea.field-input{resize:none;height:80px;line-height:1.5;}
+
+/* ── PHOTO UPLOAD ZONE ── */
+.photo-zone{
+  border:2px dashed var(--border);border-radius:10px;
+  padding:20px 16px;text-align:center;cursor:pointer;
+  transition:all .2s;background:var(--bg);
+  -webkit-tap-highlight-color:transparent;
+}
+.photo-zone:active{background:#e8f0ff;border-color:var(--navy);}
+.photo-zone-icon{font-size:32px;margin-bottom:8px;display:block;}
+.photo-zone-text{font-size:14px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.photo-zone-sub{font-size:12px;color:var(--muted);}
+.photo-zone .tap-hint{
+  display:inline-block;margin-top:10px;font-size:11px;font-weight:700;
+  color:var(--navy);background:#e8f0ff;border-radius:99px;padding:5px 14px;
+  letter-spacing:.5px;
+}
+.photo-zone.has-photos{border-style:solid;border-color:var(--navy);background:#f0f4ff;}
+
+/* ── PREVIEW GRID ── */
+.preview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;}
+.preview-item{
+  position:relative;border-radius:8px;overflow:hidden;
+  aspect-ratio:1;background:var(--border);
+}
+.preview-item img{width:100%;height:100%;object-fit:cover;display:block;}
+.preview-remove{
+  position:absolute;top:4px;right:4px;
+  background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;
+  width:22px;height:22px;font-size:12px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.preview-add{
+  border:2px dashed var(--border);border-radius:8px;
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;background:var(--bg);font-size:22px;color:var(--muted);
+  -webkit-tap-highlight-color:transparent;transition:all .2s;
+}
+.preview-add:active{background:#e8f0ff;}
+.photo-count-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:600;color:var(--muted);
+  margin-top:6px;
+}
+.photo-count-badge .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--safe);display:inline-block;
+}
+
+/* ── SUBMIT BUTTON ── */
+.submit-btn{
+  width:100%;padding:15px;background:var(--navy);color:#ffffff;
+  border:none;border-radius:var(--radius);font-size:16px;font-weight:700;
+  cursor:pointer;letter-spacing:.5px;
+  -webkit-tap-highlight-color:transparent;
+  transition:opacity .2s,transform .1s;
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.submit-btn:active{transform:scale(.98);opacity:.9;}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ── PROGRESS ── */
+.progress-wrap{margin-top:12px;display:none;}
+.progress-bar-bg{background:var(--border);border-radius:99px;height:5px;overflow:hidden;}
+.progress-bar{background:var(--green);height:100%;width:0%;transition:width .3s;border-radius:99px;}
+.progress-label{font-size:11px;color:var(--muted);margin-top:5px;text-align:center;}
+
+/* ── SUCCESS SCREEN ── */
+#successScreen{
+  display:none;min-height:100vh;background:var(--bg);
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:30px 20px;text-align:center;
+}
+.success-circle{
+  width:80px;height:80px;background:#dcfce7;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-size:40px;margin-bottom:18px;
+}
+.success-title{font-size:22px;font-weight:700;color:var(--text);margin-bottom:8px;}
+.success-sub{font-size:14px;color:var(--muted);line-height:1.65;max-width:300px;margin-bottom:24px;}
+.success-note{
+  background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;
+  padding:12px 16px;font-size:13px;color:#166534;line-height:1.55;
+  max-width:320px;margin-bottom:20px;
+}
+.submit-again-btn{
+  padding:12px 28px;background:var(--navy);color:#fff;
+  border:none;border-radius:10px;font-size:14px;font-weight:700;
+  cursor:pointer;letter-spacing:.3px;
+}
+
+/* ── ERROR TOAST ── */
+#errToast{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);
+  background:#1a1a2e;color:#fff;padding:11px 20px;border-radius:20px;
+  font-size:13px;font-weight:600;opacity:0;transition:all .3s;
+  z-index:99;pointer-events:none;white-space:nowrap;max-width:90vw;text-align:center;
+}
+#errToast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+/* ── LOADING SCREEN ── */
+#loadingScreen{
+  position:fixed;inset:0;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:50;
+}
+.loader{
+  width:38px;height:38px;border:3px solid var(--border);
+  border-top-color:var(--navy);border-radius:50%;
+  animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loader-text{font-size:13px;color:var(--muted);}
+
+/* ── ERROR SCREEN ── */
+#errorScreen{
+  display:none;min-height:100vh;background:var(--bg);
+  flex-direction:column;align-items:center;justify-content:center;
+  padding:30px 20px;text-align:center;gap:12px;
+}
+.err-icon{font-size:52px;opacity:.25;}
+.err-title{font-size:20px;font-weight:700;color:var(--text);}
+.err-sub{font-size:13px;color:var(--muted);max-width:280px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingScreen">
+  <div class="loader"></div>
+  <div class="loader-text">Loading vessel info...</div>
+</div>
+
+<!-- Error screen (vessel not found / no vessel param) -->
+<div id="errorScreen">
+  <div class="err-icon">⚓</div>
+  <div class="err-title">Invalid Link</div>
+  <div class="err-sub">This upload link is missing vessel information. Please scan the QR code from the messroom board again.</div>
+</div>
+
+<!-- Main upload screen -->
+<div id="mainScreen" style="display:none;">
+  <div class="app-header">
+    <div class="header-icon">📷</div>
+    <div class="header-text">
+      <div class="header-brand">VesselBoard</div>
+      <div class="header-vessel" id="vesselLabel">Loading...</div>
+    </div>
+    <div class="header-badge">CREW UPLOAD</div>
+  </div>
+
+  <div class="page-content">
+    <div class="page-title">Share a Photo</div>
+    <div class="page-sub">
+      Your photo will appear on the messroom TV after the Vessel Admin reviews it.
+      Keep it positive and appropriate for all crew! 🚢
+    </div>
+
+    <!-- Name -->
+    <div class="form-card">
+      <div class="field">
+        <label class="field-label">Your Name *</label>
+        <input type="text" class="field-input" id="senderName"
+          placeholder="e.g. Juan Dela Cruz"
+          autocomplete="name" autocapitalize="words"/>
+      </div>
+    </div>
+
+    <!-- Photos -->
+    <div class="form-card">
+      <label class="field-label">Photos (up to 3 · max 5 MB each) *</label>
+
+      <div class="photo-zone" id="photoZone" onclick="triggerFileInput()">
+        <span class="photo-zone-icon">🖼️</span>
+        <div class="photo-zone-text">Tap to select photos</div>
+        <div class="photo-zone-sub">JPG or PNG · up to 3 photos · 5 MB each</div>
+        <span class="tap-hint">📱 Tap here</span>
+      </div>
+
+      <div class="preview-grid" id="previewGrid" style="display:none;"></div>
+      <div class="photo-count-badge" id="photoCountBadge" style="display:none;">
+        <span class="dot"></span>
+        <span id="photoCountText">0 photos selected</span>
+      </div>
+
+      <input type="file" id="fileInput" accept="image/*" multiple
+        style="display:none;" onchange="handleFiles(this)"/>
+    </div>
+
+    <!-- Remarks -->
+    <div class="form-card">
+      <div class="field">
+        <label class="field-label">Caption / Remarks (optional)</label>
+        <textarea class="field-input" id="remarks"
+          placeholder="Add a message for your fellow crew... e.g. Beautiful sunset last night! 🌅"></textarea>
+      </div>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-bar-bg">
+        <div class="progress-bar" id="progressBar"></div>
+      </div>
+      <div class="progress-label" id="progressLabel">Uploading...</div>
+    </div>
+
+    <!-- Submit -->
+    <button class="submit-btn" id="submitBtn" onclick="submitPhotos()">
+      <span>📤</span> Submit Photos
+    </button>
+
+    <!-- Daily limit hint -->
+    <div id="limitHint" style="font-size:11px;color:var(--muted);text-align:center;margin-top:10px;font-weight:600;"></div>
+
+    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:8px;line-height:1.6;">
+      Photos are reviewed by the Vessel Admin before appearing on the board.<br/>
+      Inappropriate content will be rejected.
+    </div>
+  </div>
+</div>
+
+<!-- Success screen -->
+<div id="successScreen">
+  <div class="success-circle">✅</div>
+  <div class="success-title">Photos Submitted!</div>
+  <div class="success-sub">Your photos have been sent to the Vessel Admin for review. They'll appear on the messroom TV once approved.</div>
+  <div class="success-note">
+    📺 Keep an eye on the messroom board — your photo could show up soon!
+  </div>
+  <!-- Shown when limit not yet reached -->
+  <button class="submit-again-btn" id="submitAgainBtn" onclick="resetForm()">Submit More Photos</button>
+  <!-- Shown when daily limit reached after this submission -->
+  <div id="successLimitNote" style="display:none;background:#fff7e0;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:13px;color:#92400e;line-height:1.55;max-width:320px;margin-top:4px;text-align:center;">
+    ⚠️ You've reached your <strong>2 submissions</strong> limit for today.<br/>Come back tomorrow to submit more!
+  </div>
+</div>
+
+<!-- Daily limit reached screen -->
+<div id="limitScreen" style="display:none;min-height:100vh;background:var(--bg);flex-direction:column;align-items:center;justify-content:center;padding:30px 20px;text-align:center;gap:12px;">
+  <div style="font-size:56px;">📅</div>
+  <div style="font-size:22px;font-weight:700;color:var(--text);">Daily Limit Reached</div>
+  <div style="font-size:14px;color:var(--muted);line-height:1.65;max-width:300px;">
+    You've already submitted <strong id="limitCount">2/2</strong> photos today.
+    Come back tomorrow and share more moments with your crew!
+  </div>
+  <div style="background:#fff7e0;border:1px solid #f59e0b;border-radius:10px;padding:12px 16px;font-size:12px;color:#92400e;max-width:300px;line-height:1.55;">
+    📺 Check the messroom board to see if your photos were approved!
+  </div>
+  <div style="font-size:11px;color:var(--muted);margin-top:4px;">Limit resets at midnight (local time)</div>
+</div>
+
+<div id="errToast"></div>
+
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDzfmd1NbNYDvdM9O2AbIb-kW9e5paqwXc",
+  authDomain: "marinestock-c31ba.firebaseapp.com",
+  projectId: "marinestock-c31ba",
+  storageBucket: "marinestock-c31ba.firebasestorage.app",
+  messagingSenderId: "744159644997",
+  appId: "1:744159644997:web:243253eccfc9adc51dc22c"
+};
+
+// ============================================================
+// STATE
+// ============================================================
+var _fs = null, _storage = null;
+var vesselId = null, vesselName = '';
+var selectedFiles = [];
+var MAX_FILES = 3, MAX_SIZE = 5 * 1024 * 1024; // 5 MB
+var MAX_DAILY = 2; // max submissions per device per day
+
+// ============================================================
+// DAILY LIMIT HELPERS
+// ============================================================
+function getTodayKey() {
+  var d = new Date();
+  return 'vb_upload_' + vesselId + '_' + d.getFullYear() + '_' + (d.getMonth()+1) + '_' + d.getDate();
+}
+
+function getDailyCount() {
+  try { return parseInt(localStorage.getItem(getTodayKey()) || '0'); }
+  catch(e) { return 0; }
+}
+
+function incrementDailyCount() {
+  try { localStorage.setItem(getTodayKey(), (getDailyCount() + 1).toString()); }
+  catch(e) {}
+}
+
+function showDailyLimitScreen() {
+  var count = getDailyCount();
+  document.getElementById('loadingScreen').style.display = 'none';
+  document.getElementById('mainScreen').style.display = 'none';
+  document.getElementById('limitScreen').style.display = 'flex';
+  document.getElementById('limitCount').textContent = count + '/' + MAX_DAILY;
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', function() {
+  // Get vessel ID from URL: ?vessel=8606
+  var params = new URLSearchParams(window.location.search);
+  vesselId = params.get('vessel');
+
+  if (!vesselId) {
+    document.getElementById('loadingScreen').style.display = 'none';
+    document.getElementById('errorScreen').style.display = 'flex';
+    return;
+  }
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    else firebase.app();
+    _fs = firebase.firestore();
+    _storage = firebase.storage();
+  } catch(e) {
+    console.error('Firebase init:', e);
+    showErr('Connection failed. Please try again.');
+    document.getElementById('loadingScreen').style.display = 'none';
+    return;
+  }
+
+  // Load vessel name, then check daily limit
+  _fs.collection('vboard/' + vesselId + '/admin').doc('account').get()
+    .then(function(doc) {
+      vesselName = (doc.exists && doc.data().vesselName) ? doc.data().vesselName : 'Vessel ' + vesselId;
+      document.getElementById('vesselLabel').textContent = vesselName + ' · Photo Submission';
+      document.getElementById('loadingScreen').style.display = 'none';
+      // Check daily limit AFTER loading vessel name
+      if (getDailyCount() >= MAX_DAILY) {
+        showDailyLimitScreen();
+      } else {
+        document.getElementById('mainScreen').style.display = 'block';
+        updateLimitHint();
+      }
+    })
+    .catch(function(e) {
+      console.error(e);
+      vesselName = 'Vessel ' + vesselId;
+      document.getElementById('vesselLabel').textContent = vesselName + ' · Photo Submission';
+      document.getElementById('loadingScreen').style.display = 'none';
+      if (getDailyCount() >= MAX_DAILY) {
+        showDailyLimitScreen();
+      } else {
+        document.getElementById('mainScreen').style.display = 'block';
+        updateLimitHint();
+      }
+    });
+});
+
+function updateLimitHint() {
+  var remaining = MAX_DAILY - getDailyCount();
+  var el = document.getElementById('limitHint');
+  if (el) {
+    el.textContent = remaining + ' of ' + MAX_DAILY + ' submissions remaining today';
+    el.style.color = remaining <= 1 ? '#f59e0b' : '';
+  }
+}
+
+// ============================================================
+// FILE HANDLING
+// ============================================================
+function triggerFileInput() {
+  if (selectedFiles.length >= MAX_FILES) {
+    showErr('Maximum 3 photos allowed. Remove one to add another.');
+    return;
+  }
+  document.getElementById('fileInput').click();
+}
+
+function handleFiles(input) {
+  var files = Array.from(input.files);
+  var added = 0;
+
+  for (var i = 0; i < files.length; i++) {
+    if (selectedFiles.length >= MAX_FILES) {
+      showErr('Maximum 3 photos. Extra files were skipped.');
+      break;
+    }
+    var file = files[i];
+    if (!file.type.startsWith('image/')) {
+      showErr(file.name + ' is not an image. Only JPG and PNG allowed.');
+      continue;
+    }
+    if (file.size > MAX_SIZE) {
+      showErr(file.name + ' is over 5 MB. Please choose a smaller photo.');
+      continue;
+    }
+    selectedFiles.push(file);
+    added++;
+  }
+
+  input.value = ''; // Reset so same file can be re-selected
+  if (added > 0) renderPreviews();
+}
+
+function renderPreviews() {
+  var grid = document.getElementById('previewGrid');
+  var zone = document.getElementById('photoZone');
+  var badge = document.getElementById('photoCountBadge');
+  var countText = document.getElementById('photoCountText');
+
+  if (!selectedFiles.length) {
+    grid.style.display = 'none';
+    zone.style.display = 'block';
+    badge.style.display = 'none';
+    zone.classList.remove('has-photos');
+    return;
+  }
+
+  zone.style.display = 'none';
+  grid.style.display = 'grid';
+  badge.style.display = 'flex';
+  countText.textContent = selectedFiles.length + ' photo' + (selectedFiles.length > 1 ? 's' : '') + ' selected';
+
+  grid.innerHTML = '';
+
+  selectedFiles.forEach(function(file, idx) {
+    var item = document.createElement('div');
+    item.className = 'preview-item';
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      item.innerHTML = '<img src="' + e.target.result + '" alt="Photo ' + (idx+1) + '"/>'
+        + '<button class="preview-remove" onclick="removeFile(' + idx + ')">✕</button>';
+    };
+    reader.readAsDataURL(file);
+    grid.appendChild(item);
+  });
+
+  // Add more button if under limit
+  if (selectedFiles.length < MAX_FILES) {
+    var addBtn = document.createElement('div');
+    addBtn.className = 'preview-add';
+    addBtn.innerHTML = '＋';
+    addBtn.onclick = triggerFileInput;
+    grid.appendChild(addBtn);
+  }
+}
+
+function removeFile(idx) {
+  selectedFiles.splice(idx, 1);
+  renderPreviews();
+  if (!selectedFiles.length) {
+    var zone = document.getElementById('photoZone');
+    zone.style.display = 'block';
+    zone.classList.remove('has-photos');
+  }
+}
+
+// ============================================================
+// SUBMIT
+// ============================================================
+async function submitPhotos() {
+  var name = document.getElementById('senderName').value.trim();
+  var remarks = document.getElementById('remarks').value.trim();
+
+  if (!name) { showErr('Please enter your name.'); document.getElementById('senderName').focus(); return; }
+  if (!selectedFiles.length) { showErr('Please select at least one photo.'); return; }
+
+  // Double-check daily limit (in case they left the page open overnight)
+  if (getDailyCount() >= MAX_DAILY) {
+    showDailyLimitScreen();
+    return;
+  }
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span>⏳</span> Uploading...';
+
+  var progressWrap = document.getElementById('progressWrap');
+  var progressBar = document.getElementById('progressBar');
+  var progressLabel = document.getElementById('progressLabel');
+  progressWrap.style.display = 'block';
+
+  try {
+    var submissionId = Date.now().toString() + '_' + Math.random().toString(36).substr(2,6);
+    var photoUrls = [];
+    var thumbnails = [];
+    var emojis = ['🌅','📸','⚓','🎉','🌊','🚢','⚙️','🌿'];
+    var emoji = emojis[Math.floor(Math.random() * emojis.length)];
+
+    // Step 1: Generate thumbnails first (always works, no Storage needed)
+    progressLabel.textContent = 'Preparing photos...';
+    progressBar.style.width = '10%';
+    for (var j = 0; j < selectedFiles.length; j++) {
+      var thumb = await generateThumbnail(selectedFiles[j]);
+      thumbnails.push(thumb);
+    }
+    progressBar.style.width = '25%';
+
+    // Step 2: Upload full-res to Firebase Storage (optional — needs Storage rules)
+    for (var i = 0; i < selectedFiles.length; i++) {
+      var file = selectedFiles[i];
+      var ext = file.name.split('.').pop() || 'jpg';
+      var path = 'vboard/' + vesselId + '/submissions/' + submissionId + '/photo_' + (i+1) + '.' + ext;
+      var ref = _storage.ref(path);
+
+      progressLabel.textContent = 'Uploading photo ' + (i+1) + ' of ' + selectedFiles.length + '...';
+      progressBar.style.width = (25 + ((i / selectedFiles.length) * 55)) + '%';
+
+      try {
+        var snap = await ref.put(file);
+        var url = await snap.ref.getDownloadURL();
+        photoUrls.push(url);
+      } catch(storageErr) {
+        console.warn('Storage upload skipped (check Firebase Storage rules):', storageErr.code);
+        photoUrls.push(''); // thumbnail saved separately as fallback
+      }
+    }
+
+    progressLabel.textContent = 'Saving submission...';
+    progressBar.style.width = '88%';
+
+    // Step 3: Save submission to Firestore
+    // thumbnails = base64 previews (always present, viewable immediately)
+    // photoUrls  = full-res Storage URLs (empty strings if Storage not configured)
+    await _fs.collection('vboard/' + vesselId + '/submissions').add({
+      senderName: name,
+      remarks: remarks || '',
+      photoUrls: photoUrls,
+      thumbnails: thumbnails,
+      photoCount: selectedFiles.length,
+      emoji: emoji,
+      status: 'pending',
+      vesselId: vesselId,
+      submittedAt: new Date().toISOString(),
+      userAgent: navigator.userAgent.substring(0, 100)
+    });
+
+    progressBar.style.width = '100%';
+    progressLabel.textContent = 'Done!';
+
+    // Increment daily submission count
+    incrementDailyCount();
+
+    setTimeout(function() {
+      document.getElementById('mainScreen').style.display = 'none';
+      // Check if limit now reached — show limit screen instead of success+retry
+      if (getDailyCount() >= MAX_DAILY) {
+        document.getElementById('successScreen').style.display = 'flex';
+        document.getElementById('submitAgainBtn').style.display = 'none'; // hide retry
+        document.getElementById('successLimitNote').style.display = 'block'; // show limit note
+      } else {
+        document.getElementById('successScreen').style.display = 'flex';
+        document.getElementById('submitAgainBtn').style.display = 'inline-block';
+        document.getElementById('successLimitNote').style.display = 'none';
+      }
+    }, 600);
+
+  } catch(e) {
+    console.error('Submit error:', e);
+    showErr('Upload failed. Check your connection and try again.');
+    btn.disabled = false;
+    btn.innerHTML = '<span>📤</span> Submit Photos';
+    progressWrap.style.display = 'none';
+  }
+}
+
+// ============================================================
+// THUMBNAIL GENERATOR
+// Compresses each photo to a small base64 preview (≈50-80KB)
+// saved directly in Firestore so photos are ALWAYS viewable
+// even if Firebase Storage rules aren't configured yet.
+// ============================================================
+function generateThumbnail(file) {
+  return new Promise(function(resolve) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+      var img = new Image();
+      img.onload = function() {
+        var canvas = document.createElement('canvas');
+        var MAX = 400; // max dimension in px
+        var ratio = Math.min(MAX / img.width, MAX / img.height, 1);
+        canvas.width  = Math.round(img.width  * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.55));
+      };
+      img.onerror = function() { resolve(''); };
+      img.src = e.target.result;
+    };
+    reader.onerror = function() { resolve(''); };
+    reader.readAsDataURL(file);
+  });
+}
+function resetForm() {
+  selectedFiles = [];
+  document.getElementById('senderName').value = '';
+  document.getElementById('remarks').value = '';
+  document.getElementById('fileInput').value = '';
+  renderPreviews();
+  var zone = document.getElementById('photoZone');
+  zone.style.display = 'block';
+  zone.classList.remove('has-photos');
+  document.getElementById('progressWrap').style.display = 'none';
+  document.getElementById('progressBar').style.width = '0%';
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = false;
+  btn.innerHTML = '<span>📤</span> Submit Photos';
+  document.getElementById('successScreen').style.display = 'none';
+  document.getElementById('limitScreen').style.display = 'none';
+  // Only show main form if still under daily limit
+  if (getDailyCount() >= MAX_DAILY) {
+    showDailyLimitScreen();
+  } else {
+    document.getElementById('mainScreen').style.display = 'block';
+    updateLimitHint();
+    window.scrollTo(0,0);
+  }
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function showErr(msg) {
+  var el = document.getElementById('errToast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(function() { el.classList.remove('show'); }, 3200);
+}
+</script>
+</body>
+</html>

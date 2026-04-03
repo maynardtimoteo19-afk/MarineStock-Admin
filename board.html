@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>VesselBoard Display</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet"/>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+/* ══════════════════════════════════════════════
+   THEME VARIABLES
+══════════════════════════════════════════════ */
+:root, body[data-theme="midnight"] {
+  --bg:#0a0f1e; --sur:#0d1526; --sur2:#111d35;
+  --hdr:#0d1526; --hdr-bdr:rgba(255,255,255,.07); --hdr-txt:#e2e8f0;
+  --ac:#00d4ff; --ac2:#38bdf8;
+  --txt:#e2e8f0; --muted:rgba(226,232,240,.38);
+  --ub:#ef4444; --ubg:rgba(239,68,68,.13);
+  --ib:#f59e0b; --ibg:rgba(245,158,11,.1);
+  --gb:#00d4ff; --gbg:rgba(0,212,255,.09);
+  --bday-bg:#071828; --bday-ac:#00d4ff;
+  --wgt:#111d35; --wgt-bdr:rgba(0,212,255,.12);
+  --ticker:#080d18;
+  --clk:#00d4ff; --tz:rgba(0,212,255,.65);
+  --dot:#00d4ff;
+  --top-bar:none;
+  --btm-bar:linear-gradient(to right,transparent,rgba(0,212,255,.3),transparent);
+  --lock-bg:#0a0f1e; --lock-ac:#00d4ff;
+}
+body[data-theme="cheerful"] {
+  --bg:#f0fafe; --sur:#ffffff; --sur2:#e8f8ff;
+  --hdr:#2a3560; --hdr-bdr:rgba(255,255,255,.1); --hdr-txt:#ffffff;
+  --ac:#e8834a; --ac2:#2a3560;
+  --txt:#1a2340; --muted:rgba(26,35,64,.42);
+  --ub:#d9432a; --ubg:rgba(217,67,42,.1);
+  --ib:#c07a10; --ibg:rgba(192,122,16,.1);
+  --gb:#2a8a9a; --gbg:rgba(42,138,154,.1);
+  --bday-bg:#fff7e0; --bday-ac:#e8834a;
+  --wgt:#e8f8ff; --wgt-bdr:rgba(232,131,74,.2);
+  --ticker:#ddf4fa;
+  --clk:#F9E69F; --tz:rgba(249,230,159,.8);
+  --dot:#e8834a;
+  --top-bar:none;
+  --btm-bar:linear-gradient(to right,transparent,rgba(232,131,74,.35),transparent);
+  --lock-bg:#f0fafe; --lock-ac:#e8834a;
+}
+body[data-theme="ocean"] {
+  --bg:#06111e; --sur:#0a1828; --sur2:#0d2240;
+  --hdr:#0e1c3d; --hdr-bdr:rgba(15,214,85,.28); --hdr-txt:#ffffff;
+  --ac:#0fd655; --ac2:#00b8cc;
+  --txt:#f0fff4; --muted:rgba(240,255,244,.38);
+  --ub:#e84444; --ubg:rgba(232,68,68,.12);
+  --ib:#f0a030; --ibg:rgba(240,160,48,.1);
+  --gb:#0fd655; --gbg:rgba(15,214,85,.1);
+  --bday-bg:#081a0e; --bday-ac:#0fd655;
+  --wgt:#0d2240; --wgt-bdr:rgba(15,214,85,.18);
+  --ticker:#040e17;
+  --clk:#0fd655; --tz:rgba(15,214,85,.65);
+  --dot:#0fd655;
+  --top-bar:linear-gradient(to right,#0e1c3d,#0fd655 30%,#0fd655 70%,#0e1c3d);
+  --btm-bar:linear-gradient(to right,transparent,rgba(15,214,85,.35),transparent);
+  --lock-bg:#06111e; --lock-ac:#0fd655;
+}
+
+/* ══════════════════════════════════════════════
+   BASE
+══════════════════════════════════════════════ */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{
+  width:100%;height:100%;overflow:hidden;
+  background:var(--bg);color:var(--txt);
+  font-family:'Barlow',sans-serif;
+  transition:background .5s,color .5s;
+}
+
+/* ══════════════════════════════════════════════
+   LOCK SCREEN
+══════════════════════════════════════════════ */
+#lockScreen{
+  position:fixed;inset:0;background:var(--lock-bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  z-index:100;gap:16px;padding:20px;
+  transition:background .5s;
+}
+.lock-icon{font-size:52px;opacity:.25;margin-bottom:8px;}
+.lock-brand{
+  font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;
+  letter-spacing:4px;color:var(--lock-ac);
+}
+.lock-sub{font-size:11px;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+.lock-input{
+  background:var(--sur);border:1px solid rgba(255,255,255,.1);
+  border-radius:10px;padding:14px 20px;
+  font-size:20px;font-family:'JetBrains Mono',monospace;font-weight:700;
+  text-align:center;letter-spacing:6px;text-transform:uppercase;color:var(--txt);
+  outline:none;width:300px;max-width:90vw;
+  transition:border-color .2s;
+}
+.lock-input:focus{border-color:var(--lock-ac);}
+.lock-input::placeholder{font-size:13px;letter-spacing:2px;opacity:.3;}
+.lock-btn{
+  background:var(--lock-ac);color:var(--bg);border:none;border-radius:10px;
+  padding:13px 40px;font-family:'Barlow Condensed',sans-serif;
+  font-size:15px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  cursor:pointer;transition:opacity .2s;width:300px;max-width:90vw;
+}
+.lock-btn:hover{opacity:.85;}
+.lock-err{
+  font-size:12px;color:#ef4444;
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);
+  border-radius:6px;padding:7px 14px;display:none;
+  font-weight:600;letter-spacing:.5px;
+}
+.lock-hint{font-size:10px;color:var(--muted);text-align:center;line-height:1.7;max-width:280px;}
+
+/* ══════════════════════════════════════════════
+   OFFLINE SCREEN
+══════════════════════════════════════════════ */
+#offlineScreen{
+  position:fixed;inset:0;background:var(--bg);
+  display:none;flex-direction:column;align-items:center;justify-content:center;
+  z-index:99;gap:12px;
+}
+.offline-icon{font-size:64px;opacity:.15;}
+.offline-title{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;letter-spacing:3px;color:var(--muted);text-transform:uppercase;}
+.offline-sub{font-size:13px;color:var(--muted);text-align:center;max-width:320px;line-height:1.7;}
+.offline-code{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);opacity:.5;margin-top:8px;}
+
+/* ══════════════════════════════════════════════
+   LIVE BOARD
+══════════════════════════════════════════════ */
+#liveBoard{
+  display:none;flex-direction:column;
+  width:100vw;height:100vh;overflow:hidden;
+}
+
+/* ── ACCENT BAR (Ocean Infinity top bar) ── */
+.top-accent{height:3px;background:var(--top-bar);flex-shrink:0;}
+
+/* ── HEADER ── */
+.brd-header{
+  background:var(--hdr);border-bottom:1px solid var(--hdr-bdr);
+  padding:0 24px;height:60px;display:flex;align-items:center;
+  justify-content:space-between;flex-shrink:0;
+}
+.hdr-left{}
+.vessel-name{
+  font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;
+  letter-spacing:4px;text-transform:uppercase;color:var(--hdr-txt);
+  line-height:1;
+}
+.vessel-tag{font-size:9px;color:var(--ac);letter-spacing:3px;text-transform:uppercase;margin-top:3px;opacity:.8;}
+.hdr-right{text-align:right;}
+.hdr-clock{
+  font-family:'JetBrains Mono',monospace;font-size:30px;font-weight:700;
+  color:var(--clk);letter-spacing:2px;line-height:1;
+}
+.hdr-tz{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--tz);margin-top:3px;letter-spacing:1px;}
+.hdr-date{font-size:10px;color:var(--hdr-txt);margin-top:2px;opacity:.55;letter-spacing:.5px;}
+
+/* ── BODY ── */
+.brd-body{
+  flex:1;display:grid;grid-template-columns:1fr 265px;
+  gap:12px;padding:12px 18px 10px;overflow:hidden;min-height:0;
+}
+
+/* ── LEFT COLUMN ── */
+.brd-left{display:flex;flex-direction:column;gap:8px;overflow:hidden;min-height:0;}
+
+/* Carousel — fills majority of left column */
+.carousel-wrap{
+  flex:1;display:flex;flex-direction:column;min-height:0;
+  /* takes all remaining space after announcements */
+}
+.car-stage{
+  border-radius:10px;overflow:hidden;position:relative;
+  flex:1;min-height:0;
+  background:#0a0a0a; /* dark bg for contained images */
+}
+.car-slide{
+  position:absolute;inset:0;opacity:0;transition:opacity .8s ease;
+  display:flex;align-items:flex-end;border-radius:10px;overflow:hidden;
+  background:#0a0a0a;
+}
+.car-slide.active{opacity:1;}
+/* FIXED: contain shows full image without cropping */
+.car-slide img{
+  width:100%;height:100%;
+  object-fit:contain;  /* was cover — changed to show full photo */
+  position:absolute;inset:0;
+  background:#0a0a0a;
+}
+.car-overlay{
+  position:relative;z-index:1;width:100%;padding:10px 14px;
+  background:linear-gradient(to top,rgba(0,0,0,.8),transparent);
+}
+.car-caption{font-size:15px;font-weight:700;color:#fff;letter-spacing:.5px;}
+.car-sender{font-size:11px;color:rgba(255,255,255,.65);margin-top:2px;}
+.car-nav{
+  position:absolute;top:50%;transform:translateY(-50%);
+  background:rgba(0,0,0,.4);border:none;color:#fff;border-radius:6px;
+  padding:8px 14px;cursor:pointer;font-size:20px;z-index:2;transition:background .2s;
+}
+.car-nav:hover{background:rgba(0,0,0,.65);}
+.car-prev{left:10px;}.car-next{right:10px;}
+.car-dots{display:flex;gap:6px;justify-content:center;margin-top:7px;flex-shrink:0;}
+.car-dot{
+  width:8px;height:8px;border-radius:50%;background:var(--dot);
+  opacity:.25;transition:all .3s;cursor:pointer;
+}
+.car-dot.active{opacity:1;transform:scale(1.3);}
+
+/* Announcements — fixed height at bottom of left column */
+.ann-section{flex:0 0 auto;max-height:38vh;overflow-y:auto;overflow-x:hidden;}
+.ann-section::-webkit-scrollbar{width:3px;}
+.ann-section::-webkit-scrollbar-thumb{background:var(--hdr-bdr);border-radius:2px;}
+.ann-card{
+  border-radius:8px;padding:11px 14px;margin-bottom:7px;
+  border-left:3px solid var(--gb);
+  background:var(--gbg);
+  animation:slideIn .4s ease;
+}
+.ann-card:last-child{margin-bottom:0;}
+.ann-card.urgent{border-left-color:var(--ub);background:var(--ubg);}
+.ann-card.important{border-left-color:var(--ib);background:var(--ibg);}
+.ann-card.general{border-left-color:var(--gb);background:var(--gbg);}
+@keyframes slideIn{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:none;}}
+.ann-priority{
+  font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;
+  margin-bottom:5px;
+}
+.ann-card.urgent .ann-priority{color:var(--ub);}
+.ann-card.important .ann-priority{color:var(--ib);}
+.ann-card.general .ann-priority{color:var(--gb);}
+/* Font size and color controlled by VesselAdmin settings */
+.ann-body{
+  font-size:var(--ann-size,14px);
+  line-height:1.55;
+  color:var(--ann-color,var(--txt));
+  font-weight:500;
+}
+.ann-time{font-size:9px;color:var(--muted);margin-top:5px;font-family:'JetBrains Mono',monospace;}
+
+/* Urgent pulse */
+@keyframes urgentPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.0);}50%{box-shadow:0 0 0 4px rgba(239,68,68,.3);}}
+.ann-card.urgent{animation:slideIn .4s ease,urgentPulse 3s ease 1s infinite;}
+
+/* ── RIGHT SIDEBAR ── */
+.brd-sidebar{display:flex;flex-direction:column;gap:8px;overflow-y:auto;overflow-x:hidden;min-height:0;}
+.brd-sidebar::-webkit-scrollbar{width:3px;}
+.brd-sidebar::-webkit-scrollbar-thumb{background:var(--hdr-bdr);border-radius:2px;}
+
+.widget{
+  background:var(--wgt);border:1px solid var(--wgt-bdr);
+  border-radius:8px;padding:9px 11px;flex-shrink:0;
+}
+.wgt-title{
+  font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;
+  letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;
+}
+.wgt-row{
+  display:flex;justify-content:space-between;align-items:center;
+  font-size:11px;padding:3px 0;
+  border-bottom:1px solid rgba(128,128,128,.1);
+}
+.wgt-row:last-child{border-bottom:none;}
+.wgt-val{font-size:10px;font-family:'JetBrains Mono',monospace;color:var(--muted);}
+.wgt-row.now-watch{color:var(--ac);font-weight:700;}
+.wgt-row.now-watch .wgt-val{color:var(--ac);opacity:1;}
+
+/* Birthday widget */
+.bday-widget{
+  background:var(--bday-bg);border:1px solid var(--bday-ac);
+  border-radius:8px;padding:10px 11px;flex-shrink:0;
+  position:relative;overflow:hidden;
+}
+.bday-widget::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg,rgba(255,255,255,.02),transparent);
+  pointer-events:none;
+}
+.bday-lbl{font-family:'Barlow Condensed',sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--bday-ac);margin-bottom:5px;}
+.bday-name{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:800;color:var(--txt);letter-spacing:1px;line-height:1;}
+.bday-rank{font-size:10px;color:var(--muted);margin-top:3px;}
+.bday-badge{
+  display:inline-block;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+  background:rgba(255,255,255,.08);color:var(--bday-ac);
+  border-radius:99px;padding:2px 8px;margin-top:5px;
+}
+.bday-cake{
+  position:absolute;top:8px;right:10px;font-size:18px;
+  animation:bdaySpin 1s ease infinite alternate;
+}
+@keyframes bdaySpin{from{transform:rotate(-15deg) scale(.9);}to{transform:rotate(15deg) scale(1.1);}}
+
+/* Next port */
+.port-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:800;color:var(--ac);letter-spacing:2px;}
+.port-eta{font-size:9px;color:var(--muted);font-family:'JetBrains Mono',monospace;margin-top:3px;}
+
+/* QR widget */
+.qr-widget{background:var(--wgt);border:1px solid var(--wgt-bdr);border-radius:8px;padding:9px 11px;flex-shrink:0;text-align:center;}
+.qr-inner{background:white;border-radius:6px;padding:6px;display:inline-block;}
+.qr-label{font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--ac);margin-top:6px;}
+.qr-sub{font-size:7px;color:var(--muted);margin-top:2px;}
+
+/* ── NO CONTENT STATES ── */
+.no-ann{
+  text-align:center;padding:16px 10px;color:var(--muted);
+  font-size:11px;letter-spacing:1px;text-transform:uppercase;
+  font-family:'Barlow Condensed',sans-serif;
+}
+/* section label */
+.section-lbl{
+  font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;
+  letter-spacing:3px;text-transform:uppercase;color:var(--muted);
+  margin-bottom:6px;flex-shrink:0;
+}
+/* bottom accent line */
+.btm-accent{height:2px;background:var(--btm-bar);flex-shrink:0;}
+/* optional safety ticker */
+.ticker{
+  height:30px;background:var(--ticker);border-top:1px solid rgba(128,128,128,.08);
+  overflow:hidden;white-space:nowrap;display:flex;align-items:center;flex-shrink:0;
+}
+.ticker-track{
+  display:inline-block;padding-left:100%;
+  animation:ticker 50s linear infinite;
+  font-size:10px;font-family:'JetBrains Mono',monospace;
+  color:var(--muted);letter-spacing:.4px;
+}
+@keyframes ticker{from{transform:translateX(0);}to{transform:translateX(-100%);}}
+.ticker-dot{color:var(--ac);margin:0 16px;}
+
+/* ── WEATHER WIDGET ── */
+.weather-main{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+.weather-icon{font-size:32px;line-height:1;flex-shrink:0;}
+.weather-temp{
+  font-family:'Barlow Condensed',sans-serif;font-size:26px;font-weight:800;
+  color:var(--ac);line-height:1;
+}
+.weather-desc{font-size:10px;color:var(--muted);text-transform:capitalize;margin-top:2px;letter-spacing:.3px;}
+
+/* ── POSITION MAP WIDGET ── */
+.pos-map-container{
+  width:100%;height:130px;border-radius:6px;overflow:hidden;
+  background:var(--sur2);margin-bottom:6px;
+  border:1px solid var(--wgt-bdr);position:relative;
+}
+.pos-coords{
+  font-size:10px;font-family:'JetBrains Mono',monospace;
+  color:var(--ac);text-align:center;letter-spacing:.5px;
+}
+/* Desaturate map tiles on dark themes */
+.leaflet-tile-pane{filter:brightness(.72) saturate(.7) hue-rotate(180deg) invert(1);}
+body[data-theme="cheerful"] .leaflet-tile-pane{filter:none;}
+.leaflet-container{background:#0a1628;}
+</style>
+</head>
+<body data-theme="midnight">
+
+<!-- ══════════════════════════════════════════════
+     LOCK SCREEN
+══════════════════════════════════════════════ -->
+<div id="lockScreen">
+  <div class="lock-icon">📺</div>
+  <div class="lock-brand">VESSELBOARD</div>
+  <div class="lock-sub">Messroom Display</div>
+
+  <input type="text" class="lock-input" id="codeInput"
+    placeholder="ENTER ACCESS CODE"
+    maxlength="16"
+    oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9-]/g,'')"
+    onkeydown="if(event.key==='Enter')activateBoard()"/>
+
+  <div class="lock-err" id="lockErr">Invalid or revoked access code. Contact your Vessel Admin.</div>
+  <button class="lock-btn" onclick="activateBoard()" id="lockBtn">Activate Display →</button>
+  <div class="lock-hint">
+    Enter the access code generated by your Vessel Admin.<br/>
+    This screen only needs to be activated once.
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     OFFLINE SCREEN
+══════════════════════════════════════════════ -->
+<div id="offlineScreen">
+  <div class="offline-icon">📡</div>
+  <div class="offline-title">Board Offline</div>
+  <div class="offline-sub">This display has been deactivated. Contact your Vessel Admin to get a new access code.</div>
+  <div class="offline-code" id="offlineCode"></div>
+</div>
+
+<!-- ══════════════════════════════════════════════
+     LIVE BOARD
+══════════════════════════════════════════════ -->
+<div id="liveBoard">
+
+  <div class="top-accent"></div>
+
+  <!-- HEADER -->
+  <div class="brd-header">
+    <div class="hdr-left">
+      <div class="vessel-name" id="brdVesselName">MV ARMADA 8606</div>
+      <div class="vessel-tag" id="brdVesselTag">OSM / OCEAN INFINITY · LIVE DISPLAY</div>
+    </div>
+    <div class="hdr-right">
+      <div class="hdr-clock" id="brdClock">--:--:--</div>
+      <div class="hdr-tz" id="brdTZ">UTC+8 · UTC --:--</div>
+      <div class="hdr-date" id="brdDate">—</div>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="brd-body">
+
+    <!-- LEFT COLUMN -->
+    <div class="brd-left">
+
+      <!-- Photo Carousel — fills the left column -->
+      <div class="carousel-wrap">
+        <div class="section-lbl">📷 Photo Highlights</div>
+        <div class="car-stage" id="carStage">
+          <!-- Slides injected by JS -->
+        </div>
+        <div class="car-dots" id="carDots"></div>
+      </div>
+
+      <!-- Announcements — fixed at bottom of left column -->
+      <div class="ann-section">
+        <div class="section-lbl">📢 Announcements</div>
+        <div id="annList">
+          <div class="no-ann">No announcements</div>
+        </div>
+      </div>
+
+    </div><!-- /brd-left -->
+
+    <!-- RIGHT SIDEBAR -->
+    <div class="brd-sidebar" id="brdSidebar">
+      <!-- Content injected by JS based on settings -->
+    </div>
+
+  </div><!-- /brd-body -->
+
+  <div class="btm-accent"></div>
+  <!-- Optional safety ticker — shown only if enabled in VesselAdmin settings -->
+  <div class="ticker" id="boardTicker" style="display:none;">
+    <span class="ticker-track" id="tickerTrack"></span>
+  </div>
+
+</div><!-- /liveBoard -->
+
+<!-- QR source (hidden, used to capture data URL) -->
+<div id="qrSource" style="position:absolute;left:-9999px;top:-9999px;"></div>
+
+<!-- ══════════════════════════════════════════════
+     JAVASCRIPT
+══════════════════════════════════════════════ -->
+<script>
+// ============================================================
+// FIREBASE CONFIG
+// ============================================================
+var FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDzfmd1NbNYDvdM9O2AbIb-kW9e5paqwXc",
+  authDomain: "marinestock-c31ba.firebaseapp.com",
+  projectId: "marinestock-c31ba",
+  storageBucket: "marinestock-c31ba.firebasestorage.app",
+  messagingSenderId: "744159644997",
+  appId: "1:744159644997:web:243253eccfc9adc51dc22c"
+};
+
+// ============================================================
+// STATE
+// ============================================================
+var _fs = null;
+var board = { vesselId: null, vesselName: null, code: null };
+var brdSettings = {
+  theme: 'midnight', timezone: 'UTC+8', tzOffset: 8,
+  showQR: false, watchVisible: true, mealVisible: true,
+  carouselSpeed: 5, watchSchedule: [], mealTimes: [],
+  showWeather: false, showPosMap: false,
+  lat: null, lon: null,
+  widgetStyles: {}
+};
+var brdData = {
+  announcements: [], photos: [], birthdays: [],
+  weather: null, weatherError: null, leafletMap: null
+};
+var carouselConfig = { order: [], disabled: [] };
+var carIdx = 0, carTimer = null, clockTimer = null;
+var unsubs = [], qrDataURL = '', refreshTimer = null, weatherTimer = null;
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('load', function() {
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _fs = firebase.firestore();
+  } catch(e) { console.error('Firebase init:', e); return; }
+  checkSavedBoard();
+});
+
+function checkSavedBoard() {
+  try {
+    var saved = localStorage.getItem('vb_board');
+    if (!saved) return;
+    var s = JSON.parse(saved);
+    if (!s.vesselId || !s.code) return;
+    board.vesselId = s.vesselId;
+    board.code     = s.code;
+    // Always re-fetch the vessel name from Firebase — don't trust a stale cache
+    _fs.collection('vboard/' + s.vesselId + '/boards').doc(s.code).get()
+      .then(async function(doc) {
+        if (!doc.exists || doc.data().active === false) {
+          localStorage.removeItem('vb_board');
+          return;
+        }
+        // Resolve vessel name fresh
+        var vname = null;
+        try {
+          var accDoc = await _fs.collection('vboard/' + s.vesselId + '/admin').doc('account').get();
+          if (accDoc.exists && accDoc.data().vesselName) vname = accDoc.data().vesselName;
+        } catch(e) {}
+        if (!vname) {
+          try {
+            var vdoc = await _fs.collection('admin/config/vessels').doc(s.vesselId).get();
+            if (vdoc.exists && vdoc.data().name) vname = vdoc.data().name;
+          } catch(e) {}
+        }
+        board.vesselName = vname || ('Vessel ' + s.vesselId);
+        // Update cache with fresh name
+        localStorage.setItem('vb_board', JSON.stringify({ vesselId: s.vesselId, vesselName: board.vesselName, code: s.code }));
+        startBoard();
+      }).catch(function() {});
+  } catch(e) {}
+}
+
+// ============================================================
+// ACTIVATION
+// ============================================================
+async function activateBoard() {
+  var code = document.getElementById('codeInput').value.trim().toUpperCase();
+  var err = document.getElementById('lockErr');
+  err.style.display = 'none';
+  if (!code) { err.textContent = 'Enter the access code.'; err.style.display = 'block'; return; }
+
+  var btn = document.getElementById('lockBtn');
+  btn.disabled = true; btn.textContent = 'Verifying...';
+
+  // Extract vessel ID from code: BRD-{vesselId}-XXXX
+  var parts = code.split('-');
+  if (parts.length < 3 || parts[0] !== 'BRD') {
+    err.textContent = 'Invalid code format. Expected BRD-XXXX-XXXX';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Activate Display →';
+    return;
+  }
+  var vesselId = parts[1];
+
+  try {
+    var doc = await _fs.collection('vboard/' + vesselId + '/boards').doc(code).get();
+    if (!doc.exists) throw new Error('Board not found');
+    if (doc.data().active === false) {
+      err.textContent = 'This board code has been revoked. Contact your Vessel Admin.';
+      err.style.display = 'block';
+      btn.disabled = false; btn.textContent = 'Activate Display →';
+      return;
+    }
+
+    // Resolve vessel name — try 3 sources in order:
+    // 1. vboard account doc (always accessible — stored by SuperAdmin)
+    // 2. admin/config/vessels (accessible after Firestore rule update)
+    // 3. Plain fallback
+    var vname = null;
+
+    try {
+      var accDoc = await _fs.collection('vboard/' + vesselId + '/admin').doc('account').get();
+      if (accDoc.exists && accDoc.data().vesselName) vname = accDoc.data().vesselName;
+    } catch(e1) { console.warn('Could not read account doc for vessel name'); }
+
+    if (!vname) {
+      try {
+        var vdoc = await _fs.collection('admin/config/vessels').doc(vesselId).get();
+        if (vdoc.exists && vdoc.data().name) vname = vdoc.data().name;
+      } catch(e2) { console.warn('Could not read vessels collection (check Firestore rules)'); }
+    }
+
+    vname = vname || ('Vessel ' + vesselId);
+
+    board.vesselId   = vesselId;
+    board.vesselName = vname;
+    board.code       = code;
+    // Clear any stale cached name and save fresh
+    localStorage.setItem('vb_board', JSON.stringify({ vesselId: vesselId, vesselName: vname, code: code }));
+    startBoard();
+  } catch(e) {
+    console.error(e);
+    err.textContent = 'Could not verify code. Check connection and try again.';
+    err.style.display = 'block';
+    btn.disabled = false; btn.textContent = 'Activate Display →';
+  }
+}
+
+// ============================================================
+// START BOARD
+// ============================================================
+function startBoard() {
+  document.getElementById('lockScreen').style.display = 'none';
+  document.getElementById('liveBoard').style.display = 'flex';
+  document.getElementById('brdVesselName').textContent = board.vesselName.toUpperCase();
+  startClock();
+  startListeners();
+  generateQR();
+}
+
+// ============================================================
+// REAL-TIME LISTENERS
+// ============================================================
+function startListeners() {
+  var vid = board.vesselId;
+  var code = board.code;
+
+  // 1. Board document — watch for revocation
+  var u1 = _fs.collection('vboard/' + vid + '/boards').doc(code)
+    .onSnapshot(function(doc) {
+      if (!doc.exists || doc.data().active === false) {
+        showOffline();
+      }
+    }, function(e) { console.error('Board listener:', e); });
+  unsubs.push(u1);
+
+  // 2. Settings — live theme/widget updates
+  var u2 = _fs.collection('vboard/' + vid + '/settings').doc('main')
+    .onSnapshot(function(doc) {
+      if (doc.exists) applySettings(doc.data());
+    }, function(e) { console.error('Settings listener:', e); });
+  unsubs.push(u2);
+
+  // 3. Announcements — live
+  // NOTE: No .where() + .orderBy() combined — that needs a Firestore composite index.
+  // We fetch all by createdAt and filter active/expired in JS instead.
+  var u3 = _fs.collection('vboard/' + vid + '/announcements')
+    .orderBy('createdAt', 'desc')
+    .onSnapshot(function(snap) {
+      var now = new Date();
+      brdData.announcements = snap.docs
+        .map(function(d) { return Object.assign({id:d.id}, d.data()); })
+        .filter(function(a) {
+          // Must be active
+          if (a.active === false) return false;
+          // Must not be expired
+          if (a.expiresAt && new Date(a.expiresAt) <= now) return false;
+          return true;
+        });
+      // Sort: urgent → important → general, then newest first within same priority
+      brdData.announcements.sort(function(a, b) {
+        var order = { urgent:0, important:1, general:2 };
+        var pa = order[a.priority] !== undefined ? order[a.priority] : 2;
+        var pb = order[b.priority] !== undefined ? order[b.priority] : 2;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+      renderAnnouncements();
+    }, function(e) {
+      console.error('Announcements listener error:', e);
+      // Fallback: try without orderBy in case index doesn't exist yet
+      _fs.collection('vboard/' + vid + '/announcements').get()
+        .then(function(snap) {
+          var now = new Date();
+          brdData.announcements = snap.docs
+            .map(function(d) { return Object.assign({id:d.id}, d.data()); })
+            .filter(function(a) { return a.active !== false && (!a.expiresAt || new Date(a.expiresAt) > now); });
+          brdData.announcements.sort(function(a, b) {
+            var order = {urgent:0,important:1,general:2};
+            return (order[a.priority]||2) - (order[b.priority]||2);
+          });
+          renderAnnouncements();
+        }).catch(function(e2) { console.error('Fallback ann fetch failed:', e2); });
+    });
+  unsubs.push(u3);
+
+  // 4. Approved photos — live, with 30-day expiry filter in JS
+  var cutoff30 = new Date();
+  cutoff30.setDate(cutoff30.getDate() - 30);
+  var cutoff30ISO = cutoff30.toISOString();
+
+  var u4 = _fs.collection('vboard/' + vid + '/submissions')
+    .orderBy('submittedAt', 'desc')
+    .limit(60)
+    .onSnapshot(function(snap) {
+      var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+      brdData.photos = snap.docs
+        .map(function(d) { return Object.assign({id:d.id}, d.data()); })
+        .filter(function(s) {
+          return s.status === 'approved' && new Date(s.submittedAt) > cutoff;
+        });
+      buildCarousel();
+    }, function(e) {
+      console.error('Photos listener error:', e);
+      _fs.collection('vboard/' + vid + '/submissions').get()
+        .then(function(snap) {
+          var cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+          brdData.photos = snap.docs
+            .map(function(d) { return Object.assign({id:d.id}, d.data()); })
+            .filter(function(s) { return s.status === 'approved' && new Date(s.submittedAt) > cutoff; });
+          buildCarousel();
+        }).catch(function(){});
+    });
+  unsubs.push(u4);
+
+  // 5. Carousel config — order and disabled photos
+  var u5 = _fs.collection('vboard/' + vid + '/settings').doc('carouselConfig')
+    .onSnapshot(function(doc) {
+      if (doc.exists) {
+        carouselConfig.order    = doc.data().order    || [];
+        carouselConfig.disabled = doc.data().disabled || [];
+      } else {
+        carouselConfig = { order: [], disabled: [] };
+      }
+      buildCarousel(); // rebuild immediately when config changes
+    }, function(e) { console.error('CarouselConfig listener:', e); });
+  unsubs.push(u5);
+
+  // 6. Birthdays — load once, refresh daily
+  loadBirthdays();
+}
+
+// ============================================================
+// APPLY SETTINGS (called every time settings change via onSnapshot)
+// ============================================================
+var refreshTimer = null;
+
+function applySettings(data) {
+  var tzChanged = data.timezone && data.timezone !== brdSettings.timezone;
+  brdSettings = Object.assign(brdSettings, data);
+
+  // Parse timezone offset
+  var m = (data.timezone||'UTC+8').match(/UTC([+-]?\d+\.?\d*)/);
+  brdSettings.tzOffset = m ? parseFloat(m[1]) : 8;
+
+  // Apply theme
+  document.body.setAttribute('data-theme', brdSettings.theme || 'midnight');
+
+  // Apply font size to ann-body
+  var fontSizeMap = { small:'12px', normal:'14px', large:'17px', xlarge:'21px' };
+  var annSize = fontSizeMap[brdSettings.fontSize || 'normal'] || '14px';
+  document.documentElement.style.setProperty('--ann-size', annSize);
+
+  // Apply announcement text color
+  var colorMap = {
+    default: '', white:'#ffffff', yellow:'#F9E69F',
+    lblue:'#a8d8ff', teal:'#00e5d8', green:'#86efac'
+  };
+  var annColor = colorMap[brdSettings.annColor || 'default'];
+  if (annColor) document.documentElement.style.setProperty('--ann-color', annColor);
+  else document.documentElement.style.removeProperty('--ann-color');
+
+  // Restart clock if timezone changed
+  if (tzChanged) startClock();
+
+  // Rebuild sidebar (widgets, next port, QR, ticker)
+  renderSidebar();
+
+  // Trigger weather fetch if enabled (no API key needed — uses Open-Meteo)
+  if (brdSettings.showWeather && brdSettings.lat && brdSettings.lon) {
+    fetchWeather();
+    if (!weatherTimer) weatherTimer = setInterval(fetchWeather, 30 * 60 * 1000);
+  } else if (!brdSettings.showWeather && weatherTimer) {
+    clearInterval(weatherTimer); weatherTimer = null;
+  }
+
+  // Update carousel speed
+  if (carTimer) {
+    clearInterval(carTimer);
+    var spd = (parseInt(brdSettings.carouselSpeed) || 5) * 1000;
+    carTimer = setInterval(function() { advanceCarousel(1); }, spd);
+  }
+
+  // Auto-refresh — full page reload as safety net
+  if (refreshTimer) clearTimeout(refreshTimer);
+  if (brdSettings.autoRefresh && brdSettings.refreshMins > 0) {
+    refreshTimer = setTimeout(function() { location.reload(); },
+      parseInt(brdSettings.refreshMins) * 60 * 1000);
+  }
+}
+
+// ============================================================
+// CLOCK
+// ============================================================
+function startClock() {
+  function tick() {
+    var now = new Date();
+    var utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    var local = new Date(utcMs + (brdSettings.tzOffset * 3600000));
+
+    var h = String(local.getHours()).padStart(2,'0');
+    var mn = String(local.getMinutes()).padStart(2,'0');
+    var s = String(local.getSeconds()).padStart(2,'0');
+    var clkEl = document.getElementById('brdClock');
+    if (clkEl) clkEl.textContent = h + ':' + mn + ':' + s;
+
+    var dateEl = document.getElementById('brdDate');
+    if (dateEl) dateEl.textContent = local.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+
+    // UTC time
+    var tzEl = document.getElementById('brdTZ');
+    if (tzEl) {
+      var uh = String(now.getUTCHours()).padStart(2,'0');
+      var um = String(now.getUTCMinutes()).padStart(2,'0');
+      tzEl.textContent = (brdSettings.timezone||'UTC+8') + ' · UTC ' + uh + ':' + um;
+    }
+
+    // Highlight current watch
+    highlightCurrentWatch(h + ':' + mn);
+  }
+  tick();
+  if (clockTimer) clearInterval(clockTimer);
+  clockTimer = setInterval(tick, 1000);
+}
+
+// ============================================================
+// CAROUSEL
+// ============================================================
+var defaultSlides = [
+  { bg: 'linear-gradient(140deg,#0c3868,#1d6fa4)', caption: 'Welcome Aboard', sub: 'MV Armada 8606', emoji: '⚓' },
+  { bg: 'linear-gradient(140deg,#3b1c00,#c0531a)', caption: 'Life at Sea', sub: 'Share your moments via QR', emoji: '🌅' },
+  { bg: 'linear-gradient(140deg,#1a1540,#4a3d8a)', caption: 'Engine Room', sub: 'Powered by the best crew', emoji: '⚙️' },
+  { bg: 'linear-gradient(140deg,#064e3b,#059669)', caption: 'Safety First', sub: 'Wear your PPE always', emoji: '🦺' },
+];
+
+function buildCarousel() {
+  var stage = document.getElementById('carStage');
+  var dotsEl = document.getElementById('carDots');
+  stage.innerHTML = '';
+  dotsEl.innerHTML = '';
+  if (carTimer) { clearInterval(carTimer); carTimer = null; }
+
+  var slides = [];
+
+  if (brdData.photos.length > 0) {
+    // ── Flatten all submissions into individual per-photo slides ──
+    var allSlides = [];
+    brdData.photos.forEach(function(p) {
+      var storageUrls = (p.photoUrls  || []).filter(function(u){ return u && u.length > 0; });
+      var thumbUrls   = (p.thumbnails || []).filter(function(u){ return u && u.length > 0; });
+      var urls        = storageUrls.length > 0 ? storageUrls : thumbUrls;
+      var count       = Math.max(urls.length, p.photoCount || 1);
+      for (var i = 0; i < count; i++) {
+        var key = p.id + '_' + i;
+        allSlides.push({
+          key:      key,
+          photoUrl: urls[i] || null,
+          bg:       'linear-gradient(140deg,#0c3868,#1d6fa4)',
+          caption:  p.senderName || 'Crew Photo',
+          sub:      p.remarks || 'Shared by crew',
+          emoji:    p.emoji || '📷'
+        });
+      }
+    });
+
+    // ── Apply carousel config: order first, then filter disabled ──
+    var ordered = [];
+    carouselConfig.order.forEach(function(key) {
+      var s = allSlides.find(function(sl){ return sl.key === key; });
+      if (s) ordered.push(s);
+    });
+    // Append any new slides not yet in the saved order
+    allSlides.forEach(function(s) {
+      if (!ordered.find(function(o){ return o.key === s.key; })) ordered.push(s);
+    });
+    // Filter out disabled photos
+    slides = ordered.filter(function(s) {
+      return !carouselConfig.disabled.includes(s.key);
+    });
+  }
+
+  // If no approved/enabled photos — show default placeholder slides
+  if (!slides.length) slides = defaultSlides;
+
+  slides.forEach(function(s, i) {
+    var slide = document.createElement('div');
+    slide.className = 'car-slide' + (i === 0 ? ' active' : '');
+    if (s.photoUrl) {
+      slide.innerHTML = '<img src="' + s.photoUrl + '" onerror="this.parentElement.style.background=\'linear-gradient(140deg,#0c3868,#1d6fa4)\';this.style.display=\'none\'">'
+        + '<div class="car-overlay"><div class="car-caption">' + s.caption + '</div>'
+        + '<div class="car-sender">' + s.sub + '</div></div>';
+    } else {
+      slide.style.background = s.bg;
+      slide.innerHTML = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:56px;opacity:.15;">' + s.emoji + '</div>'
+        + '<div class="car-overlay"><div class="car-caption">' + s.caption + '</div>'
+        + '<div class="car-sender">' + s.sub + '</div></div>';
+    }
+    stage.appendChild(slide);
+
+    var dot = document.createElement('div');
+    dot.className = 'car-dot' + (i === 0 ? ' active' : '');
+    dot.setAttribute('data-i', i);
+    dot.onclick = function() { goSlide(parseInt(this.getAttribute('data-i'))); };
+    dotsEl.appendChild(dot);
+  });
+
+  // Nav buttons
+  var prev = document.createElement('button');
+  prev.className = 'car-nav car-prev'; prev.innerHTML = '&#8249;';
+  prev.onclick = function() { advanceCarousel(-1); };
+  stage.appendChild(prev);
+
+  var next = document.createElement('button');
+  next.className = 'car-nav car-next'; next.innerHTML = '&#8250;';
+  next.onclick = function() { advanceCarousel(1); };
+  stage.appendChild(next);
+
+  carIdx = 0;
+  var spd = (parseInt(brdSettings.carouselSpeed) || 5) * 1000;
+  carTimer = setInterval(function() { advanceCarousel(1); }, spd);
+}
+
+// ── ETA HELPERS ──
+function fmtEta(isoStr) {
+  if (!isoStr) return '—';
+  try {
+    var d = new Date(isoStr);
+    return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})
+      + ' · ' + d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) + ' LT';
+  } catch(e) { return isoStr; }
+}
+function etaCountdown(isoStr) {
+  if (!isoStr) return '';
+  try {
+    var now = new Date();
+    var eta = new Date(isoStr);
+    var diff = eta - now;
+    if (diff <= 0) return 'Arrived';
+    var days = Math.floor(diff / 86400000);
+    var hours = Math.floor((diff % 86400000) / 3600000);
+    if (days > 0) return days + 'd ' + hours + 'h away';
+    return hours + 'h away';
+  } catch(e) { return ''; }
+}
+
+function advanceCarousel(dir) {
+  var slides = document.querySelectorAll('.car-slide');
+  var dots = document.querySelectorAll('.car-dot');
+  if (!slides.length) return;
+  slides[carIdx].classList.remove('active');
+  dots[carIdx] && dots[carIdx].classList.remove('active');
+  carIdx = (carIdx + dir + slides.length) % slides.length;
+  slides[carIdx].classList.add('active');
+  dots[carIdx] && dots[carIdx].classList.add('active');
+}
+
+function goSlide(i) {
+  var slides = document.querySelectorAll('.car-slide');
+  var dots = document.querySelectorAll('.car-dot');
+  if (!slides.length) return;
+  slides[carIdx].classList.remove('active');
+  dots[carIdx] && dots[carIdx].classList.remove('active');
+  carIdx = i;
+  slides[carIdx].classList.add('active');
+  dots[carIdx] && dots[carIdx].classList.add('active');
+}
+
+// ============================================================
+// ANNOUNCEMENTS
+// ============================================================
+function renderAnnouncements() {
+  var el = document.getElementById('annList');
+  if (!brdData.announcements.length) {
+    el.innerHTML = '<div class="no-ann">No active announcements</div>';
+    return;
+  }
+  var labels = { urgent: '🚨 URGENT', important: '⚠️ IMPORTANT', general: '📋 GENERAL' };
+  var html = '';
+  brdData.announcements.forEach(function(a) {
+    var lbl = labels[a.priority] || '📋 GENERAL';
+    var timeStr = a.createdAt ? new Date(a.createdAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short'})
+      + ' ' + new Date(a.createdAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false}) : '';
+    html += '<div class="ann-card ' + (a.priority||'general') + '">'
+      + '<div class="ann-priority">' + lbl + '</div>'
+      + '<div class="ann-body">' + a.body + '</div>'
+      + (timeStr ? '<div class="ann-time">' + timeStr + (a.expiresAt ? ' · Expires: ' + new Date(a.expiresAt).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}) : '') + '</div>' : '')
+      + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+// ============================================================
+// SIDEBAR
+// ============================================================
+var WGT_SIZE_MAP  = { small:'11px', normal:'13px', large:'15px', xlarge:'18px' };
+var WGT_COLOR_MAP = { default:'', white:'#ffffff', yellow:'#F9E69F', lblue:'#a8d8ff', teal:'#00e5d8', green:'#86efac' };
+
+function wgtStyle(key) {
+  var ws = (brdSettings.widgetStyles || {})[key] || {};
+  var size  = WGT_SIZE_MAP[ws.size   || 'normal'] || '13px';
+  var color = WGT_COLOR_MAP[ws.color || 'default'] || '';
+  var style = 'font-size:' + size + ';';
+  if (color) style += 'color:' + color + ';';
+  return style;
+}
+
+function renderSidebar() {
+  var el = document.getElementById('brdSidebar');
+  var html = '';
+
+  // Birthday widget (always first if today)
+  var todayBday = brdData.birthdays.filter(function(b) { return daysUntil(b.date) === 0; });
+  if (todayBday.length) {
+    var bdayStyle = wgtStyle('birthday');
+    todayBday.forEach(function(b) {
+      html += '<div class="bday-widget">'
+        + '<div class="bday-lbl">Happy Birthday</div>'
+        + '<div class="bday-name" style="' + bdayStyle + '">' + b.name + '</div>'
+        + '<div class="bday-rank" style="' + bdayStyle + '">' + (b.rank||'') + '</div>'
+        + '<div class="bday-badge">Celebrating today!</div>'
+        + '<div class="bday-cake">🎂</div>'
+        + '</div>';
+    });
+  }
+
+  // Watch Schedule
+  if (brdSettings.watchVisible && brdSettings.watchSchedule && brdSettings.watchSchedule.length) {
+    var watchStyle = wgtStyle('watch');
+    html += '<div class="widget"><div class="wgt-title">⏱ Watch Schedule</div>';
+    brdSettings.watchSchedule.forEach(function(w) {
+      var isNow = isCurrentWatch(w.time);
+      html += '<div class="wgt-row' + (isNow ? ' now-watch' : '') + '" style="' + watchStyle + '">'
+        + '<span>' + w.time + (isNow ? ' ▶' : '') + '</span>'
+        + '<span class="wgt-val">' + shortName(w.officer) + '</span>'
+        + '</div>';
+    });
+    html += '</div>';
+  }
+
+  // Meal Times
+  if (brdSettings.mealVisible && brdSettings.mealTimes && brdSettings.mealTimes.length) {
+    var mealStyle = wgtStyle('meal');
+    html += '<div class="widget"><div class="wgt-title">🍽 Meal Times</div>';
+    brdSettings.mealTimes.forEach(function(m) {
+      html += '<div class="wgt-row" style="' + mealStyle + '"><span>' + m.meal + '</span>'
+        + '<span class="wgt-val">' + m.time + '</span></div>';
+    });
+    html += '</div>';
+  }
+
+  // Weather widget
+  if (brdSettings.showWeather) {
+    var weatherStyle = wgtStyle('weather');
+    if (!brdSettings.lat || !brdSettings.lon) {
+      html += '<div class="widget"><div class="wgt-title">🌤 Weather</div>'
+        + '<div style="font-size:10px;color:var(--muted);text-align:center;padding:8px 0;line-height:1.5;">Enter vessel coordinates<br/>in Board Settings to enable.</div></div>';
+    } else if (brdData.weatherError && !brdData.weather) {
+      html += '<div class="widget"><div class="wgt-title">🌤 Weather</div>'
+        + '<div style="font-size:10px;color:var(--danger);text-align:center;padding:8px 0;line-height:1.5;">⚠️ Could not load weather.<br/>Check coordinates.</div></div>';
+    } else if (brdData.weather) {
+      var w        = brdData.weather;
+      var code     = w.weather_code || 0;
+      var temp     = Math.round(w.temperature    || 0);
+      var feels    = Math.round(w.feels_like     || w.temperature || 0);
+      var humidity = Math.round(w.humidity       || 0);
+      var windKn   = Math.round(w.wind_speed     || 0);
+      var windDir  = degToCompass(w.wind_dir     || 0);
+      var icon     = WMO_EMOJI[code] || '🌤️';
+      var desc     = WMO_DESC[code]  || 'Unknown';
+      html += '<div class="widget">'
+        + '<div class="wgt-title">🌤 Weather · ' + (brdSettings.nextPort || 'Current Position') + '</div>'
+        + '<div class="weather-main">'
+        + '<div class="weather-icon">' + icon + '</div>'
+        + '<div><div class="weather-temp">' + temp + '°C</div>'
+        + '<div class="weather-desc" style="' + weatherStyle + '">' + desc + '</div></div>'
+        + '</div>'
+        + '<div class="wgt-row" style="' + weatherStyle + '"><span>Feels like</span><span class="wgt-val">' + feels + '°C</span></div>'
+        + '<div class="wgt-row" style="' + weatherStyle + '"><span>Wind</span><span class="wgt-val">' + windDir + ' ' + windKn + ' kn</span></div>'
+        + '<div class="wgt-row" style="' + weatherStyle + '"><span>Humidity</span><span class="wgt-val">' + humidity + '%</span></div>'
+        + '</div>';
+    } else {
+      html += '<div class="widget"><div class="wgt-title">🌤 Weather</div>'
+        + '<div style="font-size:10px;color:var(--muted);text-align:center;padding:10px 0;">Fetching weather...</div></div>';
+    }
+  }
+
+  // Position map widget
+  if (brdSettings.showPosMap && brdSettings.lat && brdSettings.lon) {
+    var lat = parseFloat(brdSettings.lat);
+    var lon = parseFloat(brdSettings.lon);
+    var dms = ddToDMS(lat, lon);
+    html += '<div class="widget">'
+      + '<div class="wgt-title">📡 Vessel Position</div>'
+      + '<div class="pos-map-container" id="vesselMapEl"></div>'
+      + '<div class="pos-coords">' + dms + '</div>'
+      + '</div>';
+    setTimeout(function() { initVesselMap(lat, lon); }, 200);
+  }
+
+  // Next port
+  if (brdSettings.nextPort) {
+    var portStyle   = wgtStyle('nextport');
+    var eta         = brdSettings.nextPortEta ? fmtEta(brdSettings.nextPortEta) : '—';
+    var countdown   = brdSettings.nextPortEta ? etaCountdown(brdSettings.nextPortEta) : '';
+    html += '<div class="widget">'
+      + '<div class="wgt-title">📍 Next Port</div>'
+      + '<div class="port-name" style="' + portStyle + '">' + brdSettings.nextPort.toUpperCase() + '</div>'
+      + '<div class="port-eta" style="' + portStyle + '">ETA: ' + eta + '</div>'
+      + (countdown ? '<div class="port-eta" style="color:var(--ac);margin-top:3px;' + portStyle + '">⏳ ' + countdown + '</div>' : '')
+      + '</div>';
+  }
+
+  // QR widget
+  if (brdSettings.showQR) {
+    var qrStyle = wgtStyle('qrlabel');
+    html += '<div class="qr-widget">'
+      + '<div class="wgt-title">📷 Share Your Photos</div>'
+      + '<div class="qr-inner" id="qrContainer">'
+      + (qrDataURL
+          ? '<img src="' + qrDataURL + '" width="88" height="88" style="border-radius:4px;display:block;"/>'
+          : '<div style="width:88px;height:88px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#555;text-align:center;">Generating...</div>')
+      + '</div>'
+      + '<div class="qr-label" style="' + qrStyle + '">Scan to upload</div>'
+      + '<div class="qr-sub">' + (window.location.href.replace(/[^/]*(#.*)?$/,'')) + 'crew-upload.html</div>'
+      + '</div>';
+  }
+
+  el.innerHTML = html;
+
+  // Optional safety ticker
+  var ticker = document.getElementById('boardTicker');
+  var tickerTrack = document.getElementById('tickerTrack');
+  if (ticker && tickerTrack) {
+    if (brdSettings.tickerVisible && brdSettings.tickerMessages && brdSettings.tickerMessages.length) {
+      tickerTrack.innerHTML = brdSettings.tickerMessages.join('<span class="ticker-dot">·</span>') + '<span class="ticker-dot">·</span>';
+      ticker.style.display = 'flex';
+    } else {
+      ticker.style.display = 'none';
+    }
+  }
+}
+
+// ============================================================
+// BIRTHDAYS
+// ============================================================
+function loadBirthdays() {
+  _fs.collection('vboard/' + board.vesselId + '/birthdays').get()
+    .then(function(snap) {
+      brdData.birthdays = snap.docs.map(function(d) { return Object.assign({id:d.id}, d.data()); });
+      renderSidebar();
+    }).catch(function(e) { console.error(e); });
+  // Refresh daily
+  setTimeout(loadBirthdays, 24 * 60 * 60 * 1000);
+}
+
+// ============================================================
+// QR CODE
+// ============================================================
+function generateQR() {
+  if (!board.vesselId) return;
+  if (typeof QRCode === 'undefined') return;
+  // Build the real crew upload URL based on where board.html is hosted
+  var base = window.location.href.replace(/[^/]*$/, '');
+  var url = base + 'crew-upload.html?vessel=' + board.vesselId;
+  var el = document.getElementById('qrSource');
+  el.innerHTML = '';
+  try {
+    new QRCode(el, { text: url, width: 88, height: 88, colorDark: '#0e1c3d', colorLight: '#ffffff' });
+    setTimeout(function() {
+      var img = el.querySelector('img');
+      if (img) { qrDataURL = img.src; renderSidebar(); }
+      else {
+        var canvas = el.querySelector('canvas');
+        if (canvas) { qrDataURL = canvas.toDataURL(); renderSidebar(); }
+      }
+    }, 500);
+  } catch(e) { console.error('QR error:', e); }
+}
+
+// ============================================================
+// WATCH SCHEDULE HELPERS
+// ============================================================
+function isCurrentWatch(timeRange) {
+  if (!timeRange) return false;
+  try {
+    var now = new Date();
+    var utcMs = now.getTime() + (now.getTimezoneOffset() * 60000);
+    var local = new Date(utcMs + (brdSettings.tzOffset * 3600000));
+    var hhmm = local.getHours() * 60 + local.getMinutes();
+    var parts = timeRange.replace(/–/g, '-').split('-');
+    if (parts.length < 2) return false;
+    var startH = parseInt(parts[0]) || 0;
+    var endH = parseInt(parts[1]) || 0;
+    var startMin = startH < 100 ? startH * 60 : Math.floor(startH / 100) * 60 + (startH % 100);
+    var endMin = endH < 100 ? endH * 60 : Math.floor(endH / 100) * 60 + (endH % 100);
+    if (endMin === 0 || endMin === 1440) endMin = 1440;
+    if (endMin < startMin) {
+      return hhmm >= startMin || hhmm < endMin;
+    }
+    return hhmm >= startMin && hhmm < endMin;
+  } catch(e) { return false; }
+}
+
+function highlightCurrentWatch(hhmmStr) {
+  var rows = document.querySelectorAll('.wgt-row');
+  rows.forEach(function(row) {
+    var text = row.textContent || '';
+    // Already handled in renderSidebar - just trigger a re-render every minute
+  });
+}
+
+function shortName(name) {
+  if (!name) return '—';
+  var parts = name.trim().split(' ');
+  if (parts.length === 1) return name;
+  return parts[0] + ' ' + parts[parts.length - 1];
+}
+
+// Re-render sidebar every minute (for watch highlight and birthday check)
+setInterval(function() { renderSidebar(); }, 60000);
+
+// ============================================================
+// WEATHER — Open-Meteo (100% free, no API key, no registration)
+// Docs: https://open-meteo.com
+// ============================================================
+var WMO_EMOJI = {
+  0:'☀️', 1:'🌤️', 2:'⛅', 3:'☁️',
+  45:'🌫️', 48:'🌫️',
+  51:'🌦️', 53:'🌦️', 55:'🌦️',
+  61:'🌧️', 63:'🌧️', 65:'🌧️',
+  71:'❄️', 73:'❄️', 75:'❄️', 77:'❄️',
+  80:'🌧️', 81:'🌧️', 82:'🌧️',
+  85:'❄️', 86:'❄️',
+  95:'⛈️', 96:'⛈️', 99:'⛈️'
+};
+var WMO_DESC = {
+  0:'Clear sky', 1:'Mainly clear', 2:'Partly cloudy', 3:'Overcast',
+  45:'Foggy', 48:'Icy fog',
+  51:'Light drizzle', 53:'Drizzle', 55:'Heavy drizzle',
+  61:'Light rain', 63:'Rain', 65:'Heavy rain',
+  71:'Light snow', 73:'Snow', 75:'Heavy snow', 77:'Snow grains',
+  80:'Rain showers', 81:'Rain showers', 82:'Violent showers',
+  85:'Snow showers', 86:'Heavy snow showers',
+  95:'Thunderstorm', 96:'Thunderstorm w/ hail', 99:'Thunderstorm w/ hail'
+};
+
+function fetchWeather() {
+  var lat = parseFloat(brdSettings.lat);
+  var lon = parseFloat(brdSettings.lon);
+  if (!lat || !lon || !brdSettings.showWeather) return;
+
+  // Using correct current field names for Open-Meteo API
+  var url = 'https://api.open-meteo.com/v1/forecast'
+    + '?latitude=' + lat
+    + '&longitude=' + lon
+    + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m,wind_direction_10m'
+    + '&windspeed_unit=kn'
+    + '&timezone=auto';
+
+  fetch(url)
+    .then(function(r) {
+      if (!r.ok) throw new Error('Open-Meteo HTTP error ' + r.status);
+      return r.json();
+    })
+    .then(function(data) {
+      // Support both .current (new API) and .current_weather (legacy)
+      var c = data.current || data.current_weather;
+      if (!c) throw new Error('No weather data in response');
+      // Normalize field names — handle both old and new API naming
+      brdData.weather = {
+        temperature:   c.temperature_2m    || c.temperature    || 0,
+        feels_like:    c.apparent_temperature || c.temperature  || 0,
+        humidity:      c.relative_humidity_2m || c.relativehumidity_2m || 0,
+        weather_code:  c.weather_code      || c.weathercode    || 0,
+        wind_speed:    c.wind_speed_10m    || c.windspeed       || 0,
+        wind_dir:      c.wind_direction_10m || c.winddirection  || 0
+      };
+      renderSidebar();
+    })
+    .catch(function(e) {
+      console.error('Weather fetch failed:', e);
+      // Store error state so sidebar shows a message instead of nothing
+      brdData.weatherError = e.message;
+      renderSidebar();
+    });
+}
+
+function degToCompass(deg) {
+  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+
+// ============================================================
+// POSITION MAP — Leaflet.js + OpenStreetMap (free)
+// ============================================================
+function initVesselMap(lat, lon) {
+  var el = document.getElementById('vesselMapEl');
+  if (!el || typeof L === 'undefined') return;
+  // Remove previous map instance
+  if (brdData.leafletMap) {
+    try { brdData.leafletMap.remove(); } catch(e) {}
+    brdData.leafletMap = null;
+  }
+  // Small non-interactive map for TV display
+  var map = L.map(el, {
+    zoomControl: false, attributionControl: false,
+    dragging: false, scrollWheelZoom: false,
+    doubleClickZoom: false, touchZoom: false,
+    keyboard: false
+  }).setView([lat, lon], 7);
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18, detectRetina: true
+  }).addTo(map);
+
+  // Custom vessel marker
+  var vesselIcon = L.divIcon({
+    html: '<div style="font-size:22px;line-height:1;text-shadow:0 0 6px rgba(0,0,0,.8);">🚢</div>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+    className: ''
+  });
+  L.marker([lat, lon], { icon: vesselIcon }).addTo(map);
+
+  // Accuracy circle
+  L.circle([lat, lon], { radius: 5000, color: '#00d4ff', fillColor: '#00d4ff', fillOpacity: .08, weight: 1 }).addTo(map);
+
+  brdData.leafletMap = map;
+}
+
+function ddToDMS(lat, lon) {
+  function fmt(d, pos, neg) {
+    var dir = d >= 0 ? pos : neg;
+    d = Math.abs(d);
+    var deg = Math.floor(d);
+    var min = Math.floor((d - deg) * 60);
+    var sec = Math.round(((d - deg) * 60 - min) * 60);
+    return deg + '°' + String(min).padStart(2,'0') + '\'' + String(sec).padStart(2,'0') + '"' + dir;
+  }
+  return fmt(lat, 'N', 'S') + ' ' + fmt(lon, 'E', 'W');
+}
+
+// ============================================================
+// OFFLINE
+// ============================================================
+function showOffline() {
+  // Stop all listeners
+  unsubs.forEach(function(u) { try { u(); } catch(e) {} });
+  unsubs = [];
+  if (carTimer) clearInterval(carTimer);
+  if (clockTimer) clearInterval(clockTimer);
+  localStorage.removeItem('vb_board');
+  document.getElementById('liveBoard').style.display = 'none';
+  document.getElementById('lockScreen').style.display = 'none';
+  var os = document.getElementById('offlineScreen');
+  os.style.display = 'flex';
+  var codeEl = document.getElementById('offlineCode');
+  if (codeEl) codeEl.textContent = 'Code: ' + (board.code || '—');
+}
+
+// ============================================================
+// UTILS
+// ============================================================
+function daysUntil(dateStr) {
+  if (!dateStr) return 999;
+  var parts = dateStr.split('-');
+  var today = new Date();
+  var bday = new Date(today.getFullYear(), parseInt(parts[1])-1, parseInt(parts[2]));
+  var diff = Math.round((bday - new Date(today.getFullYear(), today.getMonth(), today.getDate())) / 86400000);
+  if (diff < 0) diff += 365;
+  return diff;
+}
+</script>
+</body>
+</html>
